@@ -6,3 +6,5 @@ local.properties
 keystore.properties
 *.jks
 *.iml
+.codex-remote-attachments/
+release-assets/
