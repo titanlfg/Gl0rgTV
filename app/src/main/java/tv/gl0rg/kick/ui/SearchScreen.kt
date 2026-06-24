@@ -1,16 +1,19 @@
 package tv.gl0rg.kick.ui
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -21,24 +24,46 @@ fun SearchScreen(
     modifier: Modifier = Modifier
 ) {
     val query = remember { mutableStateOf("") }
-    Column(modifier = modifier.padding(32.dp)) {
-        Button(onClick = onBack) { Text("Back") }
-        Spacer(Modifier.height(16.dp))
-        OutlinedTextField(
-            value = query.value,
-            onValueChange = { query.value = it },
-            label = { Text("Channel or category") }
+    TvShell(
+        modifier = modifier,
+        navActions = listOf(
+            TvNavAction("Back", onClick = onBack),
+            TvNavAction("Search", selected = true) {}
         )
-        Spacer(Modifier.height(16.dp))
-        Button(
-            onClick = { onOpenChannel(query.value) },
-            enabled = query.value.isNotBlank()
-        ) {
-            Text("Open Channel")
-        }
-        statusMessage?.let {
-            Spacer(Modifier.height(16.dp))
-            Text(it)
+    ) {
+        Column {
+            ScreenTitle(
+                title = "Search",
+                subtitle = "Enter a Kick channel name or paste a Kick channel URL."
+            )
+            Spacer(Modifier.height(30.dp))
+            OutlinedTextField(
+                value = query.value,
+                onValueChange = { query.value = it },
+                singleLine = true,
+                label = { Text("Channel") },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Gl0rgText,
+                    unfocusedTextColor = Gl0rgText,
+                    focusedBorderColor = KickGreen,
+                    unfocusedBorderColor = Color(0xFF3B453C),
+                    focusedLabelColor = KickGreen,
+                    unfocusedLabelColor = Gl0rgMuted,
+                    cursorColor = KickGreen
+                ),
+                modifier = Modifier
+                    .fillMaxWidth(0.72f)
+                    .height(64.dp)
+                    .border(1.dp, Color(0xFF263027), RoundedCornerShape(6.dp))
+            )
+            Spacer(Modifier.height(20.dp))
+            TvButton(
+                label = "Open Channel",
+                onClick = { onOpenChannel(query.value) },
+                enabled = query.value.isNotBlank()
+            )
+            Spacer(Modifier.height(18.dp))
+            StatusText(statusMessage)
         }
     }
 }

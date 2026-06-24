@@ -81,6 +81,7 @@ fun Gl0rgTvApp() {
         )
         AppRoute.Login -> LoginScreen(
             onLoginObserved = { route.value = AppRoute.Home },
+            onBack = { route.value = AppRoute.Home },
             sessionProvider = sessionProvider
         )
         AppRoute.Settings -> SettingsScreen(
@@ -94,6 +95,7 @@ fun Gl0rgTvApp() {
         )
         is AppRoute.Channel -> ChannelScreen(
             channel = currentRoute.channel,
+            onBack = { route.value = AppRoute.Search },
             onWatch = {
                 val stream = currentRoute.channel.stream
                 if (stream == null) {
