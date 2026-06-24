@@ -19,7 +19,13 @@ adb install app/build/outputs/apk/release/app-release.apk
 Downloader URL:
 
 ```text
-https://github.com/titanlfg/Gl0rgTV/releases/download/v0.1.0/Gl0rgTV-v0.1.0.apk
+https://titanlfg.github.io/Gl0rgTV
+```
+
+Direct APK URL:
+
+```text
+https://github.com/titanlfg/Gl0rgTV/releases/latest/download/Gl0rgTV.apk
 ```
 
 Release builds are signed with the local Gl0rgTV release keystore. Keep `C:\Users\Titan\Documents\Keys\gl0rgtv-release.jks` backed up.
