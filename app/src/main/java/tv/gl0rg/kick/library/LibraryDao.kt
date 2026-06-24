@@ -16,6 +16,9 @@ interface LibraryDao {
     @Query("SELECT slug FROM favorites ORDER BY displayName COLLATE NOCASE ASC, slug COLLATE NOCASE ASC, slug ASC")
     suspend fun favoriteSlugs(): List<String>
 
+    @Query("SELECT * FROM favorites ORDER BY displayName COLLATE NOCASE ASC, slug COLLATE NOCASE ASC, slug ASC")
+    suspend fun favorites(): List<FavoriteEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertRecent(entity: RecentEntity)
 

@@ -2,17 +2,21 @@ package tv.gl0rg.kick
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.room.Room
 import tv.gl0rg.kick.kick.KickChannel
+import tv.gl0rg.kick.kick.KickStream
+import tv.gl0rg.kick.kick.LocalCookieLoginServer
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import tv.gl0rg.kick.kick.KickResult
 import tv.gl0rg.kick.kick.WebKickClient
 import tv.gl0rg.kick.kick.WebViewKickSessionProvider
+import tv.gl0rg.kick.library.FavoriteEntity
 import tv.gl0rg.kick.library.LibraryDatabase
 import tv.gl0rg.kick.library.RoomLibraryRepository
 import tv.gl0rg.kick.player.PlaybackRoute
@@ -49,9 +53,72 @@ fun Gl0rgTvApp() {
     val kickClient = remember { WebKickClient(httpClient, sessionProvider) }
     val updateClient = remember { GitHubUpdateClient(httpClient) }
     val availableUpdate = remember { mutableStateOf<AppUpdate?>(null) }
+    val localLoginServer = remember { LocalCookieLoginServer(sessionProvider) }
+    val localLoginUrl = remember { mutableStateOf<String?>(null) }
+    val favoriteChannels = remember { mutableStateOf<List<KickChannel>>(emptyList()) }
+    val liveStreams = remember { mutableStateOf<List<KickStream>>(emptyList()) }
+    val searchResults = remember { mutableStateOf<List<KickChannel>>(emptyList()) }
     val libraryRepository = remember(appContext) {
         val database = Room.databaseBuilder(appContext, LibraryDatabase::class.java, "gl0rgtv-library.db").build()
         RoomLibraryRepository(database.libraryDao())
+    }
+
+    suspend fun refreshFavorites() {
+        favoriteChannels.value = libraryRepository.favorites().map { it.toKickChannel() }
+    }
+
+    suspend fun refreshBrowse() {
+        when (val result = kickClient.getLiveStreams()) {
+            is KickResult.Success -> liveStreams.value = result.value
+            is KickResult.Failure -> statusMessage.value = "Browse load failed (${result.reason})"
+        }
+    }
+
+    fun runSearch(input: String) {
+        val query = input.trim()
+        if (query.isBlank()) {
+            statusMessage.value = "Enter search text"
+            return
+        }
+        statusMessage.value = "Searching $query"
+        scope.launch {
+            when (val result = kickClient.searchChannels(query)) {
+                is KickResult.Success -> {
+                    val exactFallback = if (result.value.channels.isEmpty()) {
+                        when (val exact = kickClient.getChannel(query.toKickChannelSlug())) {
+                            is KickResult.Success -> listOf(exact.value)
+                            is KickResult.Failure -> emptyList()
+                        }
+                    } else {
+                        emptyList()
+                    }
+                    searchResults.value = (result.value.channels + exactFallback).distinctBy { it.slug }
+                    statusMessage.value = "${searchResults.value.size} results"
+                }
+                is KickResult.Failure -> statusMessage.value = "Search failed (${result.reason})"
+            }
+        }
+    }
+
+    fun startLocalLoginServer() {
+        localLoginServer.start(
+            scope = scope,
+            onLogin = {
+                scope.launch {
+                    statusMessage.value = "Kick session linked"
+                    localLoginServer.stop()
+                    route.value = AppRoute.Home
+                }
+            },
+            onError = { reason -> scope.launch { statusMessage.value = "Login server error ($reason)" } }
+        )
+        localLoginUrl.value = localLoginServer.url
+        statusMessage.value = localLoginUrl.value?.let { "Open $it" } ?: "Login server unavailable"
+    }
+
+    LaunchedEffect(Unit) {
+        refreshFavorites()
+        refreshBrowse()
     }
 
     val openChannel: (String) -> Unit = { input ->
@@ -79,18 +146,35 @@ fun Gl0rgTvApp() {
     when (val currentRoute = route.value) {
         AppRoute.Home -> HomeScreen(
             onSearch = { route.value = AppRoute.Search },
-            onLogin = { route.value = AppRoute.Login },
-            onSettings = { route.value = AppRoute.Settings }
+            onLogin = {
+                route.value = AppRoute.Login
+                startLocalLoginServer()
+            },
+            onSettings = { route.value = AppRoute.Settings },
+            onOpenChannel = openChannel,
+            onBrowseCategory = { category ->
+                route.value = AppRoute.Search
+                runSearch(category)
+            },
+            favorites = favoriteChannels.value,
+            liveStreams = liveStreams.value,
+            statusMessage = statusMessage.value
         )
         AppRoute.Search -> SearchScreen(
             onBack = { route.value = AppRoute.Home },
+            onSearch = { runSearch(it) },
             onOpenChannel = openChannel,
+            results = searchResults.value,
             statusMessage = statusMessage.value
         )
         AppRoute.Login -> LoginScreen(
-            onLoginObserved = { route.value = AppRoute.Home },
+            localLoginUrl = localLoginUrl.value,
+            statusMessage = statusMessage.value,
             onBack = { route.value = AppRoute.Home },
-            sessionProvider = sessionProvider
+            onRestartServer = {
+                localLoginServer.stop()
+                startLocalLoginServer()
+            }
         )
         AppRoute.Settings -> SettingsScreen(
             onBack = { route.value = AppRoute.Home },
@@ -165,13 +249,24 @@ fun Gl0rgTvApp() {
                         avatarUrl = currentRoute.channel.avatarUrl,
                         favorite = true
                     )
+                    refreshFavorites()
                     statusMessage.value = "Favorited ${currentRoute.channel.safeDisplayName}"
                 }
-            }
+            },
+            statusMessage = statusMessage.value
         )
         is AppRoute.Player -> PlayerScreen(route = currentRoute.route)
     }
 }
+
+private fun FavoriteEntity.toKickChannel(): KickChannel =
+    KickChannel(
+        slug = slug,
+        displayName = displayName,
+        avatarUrl = avatarUrl,
+        bannerUrl = null,
+        stream = null
+    )
 
 private fun String.toKickChannelSlug(): String {
     val cleaned = trim().removePrefix("@")

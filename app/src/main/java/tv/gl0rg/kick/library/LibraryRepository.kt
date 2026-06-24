@@ -3,6 +3,7 @@ package tv.gl0rg.kick.library
 interface LibraryRepository {
     suspend fun setFavorite(slug: String, displayName: String, avatarUrl: String?, favorite: Boolean)
     suspend fun favoriteSlugs(): List<String>
+    suspend fun favorites(): List<FavoriteEntity>
     suspend fun markWatched(slug: String, displayName: String, thumbnailUrl: String?, watchedAtMillis: Long)
     suspend fun recentSlugs(): List<String>
 }
@@ -20,13 +21,14 @@ class InMemoryLibraryRepository : LibraryRepository {
     }
 
     override suspend fun favoriteSlugs(): List<String> =
-        favorites.values
-            .sortedWith(
-                compareBy(String.CASE_INSENSITIVE_ORDER, FavoriteEntity::displayName)
-                    .thenBy(String.CASE_INSENSITIVE_ORDER, FavoriteEntity::slug)
-                    .thenBy { it.slug }
-            )
-            .map { it.slug }
+        favorites().map { it.slug }
+
+    override suspend fun favorites(): List<FavoriteEntity> =
+        favorites.values.sortedWith(
+            compareBy(String.CASE_INSENSITIVE_ORDER, FavoriteEntity::displayName)
+                .thenBy(String.CASE_INSENSITIVE_ORDER, FavoriteEntity::slug)
+                .thenBy { it.slug }
+        )
 
     override suspend fun markWatched(slug: String, displayName: String, thumbnailUrl: String?, watchedAtMillis: Long) {
         recents[slug] = RecentEntity(slug, displayName, thumbnailUrl, watchedAtMillis)
@@ -55,6 +57,8 @@ class RoomLibraryRepository(
     }
 
     override suspend fun favoriteSlugs(): List<String> = dao.favoriteSlugs()
+
+    override suspend fun favorites(): List<FavoriteEntity> = dao.favorites()
 
     override suspend fun markWatched(slug: String, displayName: String, thumbnailUrl: String?, watchedAtMillis: Long) {
         dao.upsertRecent(RecentEntity(slug, displayName, thumbnailUrl, watchedAtMillis))

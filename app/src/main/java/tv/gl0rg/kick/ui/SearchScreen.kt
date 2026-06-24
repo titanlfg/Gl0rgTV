@@ -15,11 +15,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import tv.gl0rg.kick.kick.KickChannel
 
 @Composable
 fun SearchScreen(
     onBack: () -> Unit,
+    onSearch: (String) -> Unit,
     onOpenChannel: (String) -> Unit,
+    results: List<KickChannel>,
     statusMessage: String?,
     modifier: Modifier = Modifier
 ) {
@@ -58,12 +61,19 @@ fun SearchScreen(
             )
             Spacer(Modifier.height(20.dp))
             TvButton(
-                label = "Open Channel",
-                onClick = { onOpenChannel(query.value) },
+                label = "Search",
+                onClick = { onSearch(query.value) },
                 enabled = query.value.isNotBlank()
             )
             Spacer(Modifier.height(18.dp))
             StatusText(statusMessage)
+            Spacer(Modifier.height(26.dp))
+            ChannelRow(
+                title = "Results",
+                channels = results,
+                emptyText = "No results yet.",
+                onOpenChannel = onOpenChannel
+            )
         }
     }
 }

@@ -25,6 +25,8 @@ https://github.com/titanlfg/Gl0rgTV/releases/latest/download/Gl0rgTV.apk
 
 Future updates can be installed from Gl0rgTV Settings with Check Update.
 
+Login uses a local phone/PC helper page instead of the Android TV WebView. Open the URL shown on the TV from a device on the same network and paste a Kick Cookie header from a logged-in browser session.
+
 ## Build
 
 ```powershell

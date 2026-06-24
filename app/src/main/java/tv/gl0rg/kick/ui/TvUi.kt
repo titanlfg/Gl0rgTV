@@ -35,6 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import tv.gl0rg.kick.kick.KickChannel
+import tv.gl0rg.kick.kick.KickStream
 
 internal val KickGreen = Color(0xFF53FC18)
 internal val Gl0rgBackground = Color(0xFF090B0A)
@@ -229,5 +231,69 @@ fun StatusText(text: String?, modifier: Modifier = Modifier) {
             fontSize = 15.sp,
             modifier = modifier
         )
+    }
+}
+
+@Composable
+fun ChannelRow(
+    title: String,
+    channels: List<KickChannel>,
+    emptyText: String,
+    onOpenChannel: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = title,
+            color = Gl0rgText,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(12.dp))
+        if (channels.isEmpty()) {
+            Text(text = emptyText, color = Gl0rgMuted, fontSize = 14.sp)
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                channels.take(5).forEach { channel ->
+                    TvButton(
+                        label = channel.safeDisplayName,
+                        onClick = { onOpenChannel(channel.slug) },
+                        modifier = Modifier.width(170.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StreamRow(
+    title: String,
+    streams: List<KickStream>,
+    emptyText: String,
+    onOpenChannel: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = title,
+            color = Gl0rgText,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(12.dp))
+        if (streams.isEmpty()) {
+            Text(text = emptyText, color = Gl0rgMuted, fontSize = 14.sp)
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                streams.take(5).forEach { stream ->
+                    TvButton(
+                        label = stream.slug,
+                        onClick = { onOpenChannel(stream.slug) },
+                        modifier = Modifier.width(170.dp)
+                    )
+                }
+            }
+        }
     }
 }

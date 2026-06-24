@@ -19,6 +19,7 @@ fun ChannelScreen(
     onBack: () -> Unit,
     onWatch: () -> Unit,
     onFavorite: () -> Unit,
+    statusMessage: String?,
     modifier: Modifier = Modifier
 ) {
     TvShell(
@@ -48,6 +49,8 @@ fun ChannelScreen(
                 TvButton("Watch", onClick = onWatch, enabled = channel.stream != null)
                 TvButton("Favorite", onClick = onFavorite)
             }
+            Spacer(Modifier.height(18.dp))
+            StatusText(statusMessage)
             Spacer(Modifier.height(24.dp))
             Text(
                 text = "Slug: ${channel.slug}",
