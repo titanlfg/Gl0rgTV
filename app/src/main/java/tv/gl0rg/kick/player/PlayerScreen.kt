@@ -4,20 +4,33 @@ import android.net.Uri
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.PlaybackException
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.ui.PlayerView
+import tv.gl0rg.kick.ui.Gl0rgBackground
+import tv.gl0rg.kick.ui.Gl0rgMuted
+import tv.gl0rg.kick.ui.Gl0rgText
+import tv.gl0rg.kick.ui.KickGreen
 
 @Composable
 fun PlayerScreen(route: PlaybackRoute, modifier: Modifier = Modifier) {
@@ -34,12 +47,40 @@ private fun NativePlayer(hlsUrl: String) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val wasPlaying = remember { mutableStateOf(false) }
-    val player = remember(hlsUrl) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(hlsUrl))
-            prepare()
-            playWhenReady = true
+    val playbackError = remember(hlsUrl) { mutableStateOf<String?>(null) }
+    val playerResult = remember(hlsUrl) {
+        runCatching {
+            val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+                .setUserAgent("Mozilla/5.0 (Android TV; Gl0rgTV)")
+                .setDefaultRequestProperties(
+                    mapOf(
+                        "Origin" to "https://kick.com",
+                        "Referer" to "https://kick.com/"
+                    )
+                )
+            val mediaSource = HlsMediaSource.Factory(httpDataSourceFactory)
+                .createMediaSource(MediaItem.fromUri(hlsUrl))
+            ExoPlayer.Builder(context).build().apply {
+                addListener(object : Player.Listener {
+                    override fun onPlayerError(error: PlaybackException) {
+                        playbackError.value = error.message ?: error.errorCodeName
+                    }
+                })
+                setMediaSource(mediaSource)
+                prepare()
+                playWhenReady = true
+            }
         }
+    }
+    val player = playerResult.getOrNull()
+    if (player == null) {
+        PlayerError(playerResult.exceptionOrNull()?.message ?: "Could not start player")
+        return
+    }
+
+    playbackError.value?.let {
+        PlayerError(it)
+        return
     }
 
     DisposableEffect(lifecycleOwner, player) {
@@ -79,6 +120,21 @@ private fun NativePlayer(hlsUrl: String) {
             playerView.player = null
         }
     )
+}
+
+@Composable
+private fun PlayerError(message: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(40.dp)
+    ) {
+        Column {
+            Text("Playback failed", color = KickGreen, fontSize = 28.sp)
+            Text(message, color = Gl0rgText, fontSize = 16.sp, modifier = Modifier.padding(top = 14.dp))
+            Text("Press Back and try another stream.", color = Gl0rgMuted, fontSize = 14.sp, modifier = Modifier.padding(top = 16.dp))
+        }
+    }
 }
 
 @Composable
