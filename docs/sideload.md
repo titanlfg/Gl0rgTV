@@ -4,7 +4,7 @@ Gl0rgTV is an unofficial Kick viewer for Android TV. It is not affiliated with K
 
 ## Install
 
-1. Build or download `app-debug.apk` for current sideload testing.
+1. Download the latest `Gl0rgTV-v0.1.0.apk` from GitHub Releases.
 2. Copy it to the Android TV device or install through `adb`.
 3. Enable installing apps from unknown sources for the file manager or `adb`.
 4. Install the APK.
@@ -13,10 +13,16 @@ Gl0rgTV is an unofficial Kick viewer for Android TV. It is not affiliated with K
 ## ADB Install
 
 ```powershell
-adb install app/build/outputs/apk/debug/app-debug.apk
+adb install app/build/outputs/apk/release/app-release.apk
 ```
 
-`assembleRelease` currently produces `app-release-unsigned.apk`. Sign it with your own release key before distributing release builds to other people.
+Downloader URL:
+
+```text
+https://github.com/titanlfg/Gl0rgTV/releases/download/v0.1.0/Gl0rgTV-v0.1.0.apk
+```
+
+Release builds are signed with the local Gl0rgTV release keystore. Keep `C:\Users\Titan\Documents\Keys\gl0rgtv-release.jks` backed up.
 
 ## Login
 
