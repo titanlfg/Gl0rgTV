@@ -5,11 +5,15 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,9 +21,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,10 +36,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import tv.gl0rg.kick.kick.KickChannel
 import tv.gl0rg.kick.kick.KickStream
 
@@ -94,9 +101,7 @@ fun TvShell(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .background(Gl0rgPanel, RoundedCornerShape(8.dp))
-                .border(1.dp, Color(0xFF263027), RoundedCornerShape(8.dp))
-                .padding(32.dp)
+                .padding(start = 18.dp)
         ) {
             content()
         }
@@ -253,12 +258,13 @@ fun ChannelRow(
         if (channels.isEmpty()) {
             Text(text = emptyText, color = Gl0rgMuted, fontSize = 14.sp)
         } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                 channels.take(5).forEach { channel ->
-                    TvButton(
-                        label = channel.safeDisplayName,
-                        onClick = { onOpenChannel(channel.slug) },
-                        modifier = Modifier.width(170.dp)
+                    PreviewCard(
+                        title = channel.safeDisplayName,
+                        subtitle = channel.slug,
+                        imageUrl = channel.avatarUrl,
+                        onClick = { onOpenChannel(channel.slug) }
                     )
                 }
             }
@@ -285,15 +291,94 @@ fun StreamRow(
         if (streams.isEmpty()) {
             Text(text = emptyText, color = Gl0rgMuted, fontSize = 14.sp)
         } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                 streams.take(5).forEach { stream ->
-                    TvButton(
-                        label = stream.slug,
-                        onClick = { onOpenChannel(stream.slug) },
-                        modifier = Modifier.width(170.dp)
+                    PreviewCard(
+                        title = stream.slug,
+                        subtitle = stream.category ?: "${stream.viewerCount ?: 0} viewers",
+                        imageUrl = stream.thumbnailUrl,
+                        onClick = { onOpenChannel(stream.slug) }
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun S0undLikeCanvas(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(end = 28.dp, bottom = 42.dp),
+        verticalArrangement = Arrangement.spacedBy(26.dp),
+        content = content
+    )
+}
+
+@Composable
+fun PreviewCard(
+    title: String,
+    subtitle: String,
+    imageUrl: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var focused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (focused) 1.12f else 1f, label = "previewCardScale")
+    Column(
+        modifier = modifier
+            .width(if (focused) 300.dp else 220.dp)
+            .scale(scale)
+            .onFocusChanged { focused = it.isFocused }
+            .clickable(onClick = onClick)
+            .border(
+                width = if (focused) 4.dp else 1.dp,
+                color = if (focused) KickGreen else Color(0xFF222A24),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .background(if (focused) KickGreen else Gl0rgPanelSoft, RoundedCornerShape(8.dp))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .background(Color(0xFF202820), RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+        ) {
+            if (!imageUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Text(
+                    text = title.take(1).uppercase(),
+                    color = if (focused) Gl0rgBackground else KickGreen,
+                    fontSize = 56.sp,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+        }
+        Column(Modifier.padding(12.dp)) {
+            Text(
+                text = title,
+                color = if (focused) Gl0rgBackground else Gl0rgText,
+                fontSize = if (focused) 22.sp else 18.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = subtitle,
+                color = if (focused) Gl0rgBackground.copy(alpha = 0.8f) else Gl0rgMuted,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

@@ -43,6 +43,15 @@ fun SettingsScreen(
                 InfoTile("Quality", "Auto.", Modifier.weight(1f))
                 InfoTile("Kick session", if (isLoggedIn) "Logged in." else "Not logged in.", Modifier.weight(1f))
             }
+            Spacer(Modifier.height(20.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(18.dp)
+            ) {
+                InfoTile("Remote shortcuts", "OK: controls. Back: exit player. Live: catch up stream.", Modifier.weight(1f))
+                InfoTile("Quality selector", "Use player overlay to switch Auto, 1080p, 720p, or 480p.", Modifier.weight(1f))
+                InfoTile("Custom binds", "Shortcut remapping screen planned after device testing.", Modifier.weight(1f))
+            }
             Spacer(Modifier.height(28.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 TvButton("Check Update", onClick = onCheckUpdate)

@@ -3,10 +3,13 @@ package tv.gl0rg.kick.player
 import android.net.Uri
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -17,6 +20,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.media3.common.PlaybackException
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -26,11 +34,13 @@ import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.hls.HlsMediaSource
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.PlayerView
 import tv.gl0rg.kick.ui.Gl0rgBackground
 import tv.gl0rg.kick.ui.Gl0rgMuted
 import tv.gl0rg.kick.ui.Gl0rgText
 import tv.gl0rg.kick.ui.KickGreen
+import tv.gl0rg.kick.ui.TvButton
 
 @Composable
 fun PlayerScreen(route: PlaybackRoute, modifier: Modifier = Modifier) {
@@ -48,6 +58,8 @@ private fun NativePlayer(hlsUrl: String) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val wasPlaying = remember { mutableStateOf(false) }
     val playbackError = remember(hlsUrl) { mutableStateOf<String?>(null) }
+    val quality = remember(hlsUrl) { mutableStateOf(PlayerQuality.Auto) }
+    val trackSelector = remember(hlsUrl) { DefaultTrackSelector(context) }
     val playerResult = remember(hlsUrl) {
         runCatching {
             val httpDataSourceFactory = DefaultHttpDataSource.Factory()
@@ -60,7 +72,10 @@ private fun NativePlayer(hlsUrl: String) {
                 )
             val mediaSource = HlsMediaSource.Factory(httpDataSourceFactory)
                 .createMediaSource(MediaItem.fromUri(hlsUrl))
-            ExoPlayer.Builder(context).build().apply {
+            ExoPlayer.Builder(context)
+                .setTrackSelector(trackSelector)
+                .build()
+                .apply {
                 addListener(object : Player.Listener {
                     override fun onPlayerError(error: PlaybackException) {
                         playbackError.value = error.message ?: error.errorCodeName
@@ -106,20 +121,88 @@ private fun NativePlayer(hlsUrl: String) {
         onDispose { player.release() }
     }
 
-    AndroidView(
-        modifier = Modifier.fillMaxSize(),
-        factory = {
-            PlayerView(it).apply {
-                useController = true
+    Box(
+        Modifier
+            .fillMaxSize()
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (event.key) {
+                    Key.MediaPlayPause, Key.Spacebar -> {
+                        if (player.isPlaying) player.pause() else player.play()
+                        true
+                    }
+                    Key.MediaFastForward -> {
+                        player.seekToDefaultPosition()
+                        player.play()
+                        true
+                    }
+                    else -> false
+                }
             }
-        },
-        update = { playerView ->
-            playerView.player = player
-        },
-        onRelease = { playerView ->
-            playerView.player = null
+    ) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = {
+                PlayerView(it).apply {
+                    useController = true
+                }
+            },
+            update = { playerView ->
+                playerView.player = player
+            },
+            onRelease = { playerView ->
+                playerView.player = null
+            }
+        )
+        PlayerControlOverlay(
+            quality = quality.value,
+            onQuality = {
+                quality.value = it
+                trackSelector.parameters = trackSelector.buildUponParameters()
+                    .setMaxVideoSize(it.maxWidth, it.maxHeight)
+                    .build()
+            },
+            onLive = {
+                player.seekToDefaultPosition()
+                player.play()
+            },
+            modifier = Modifier
+                .align(androidx.compose.ui.Alignment.BottomCenter)
+                .padding(bottom = 28.dp)
+        )
+    }
+}
+
+@Composable
+private fun PlayerControlOverlay(
+    quality: PlayerQuality,
+    onQuality: (PlayerQuality) -> Unit,
+    onLive: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .background(Gl0rgBackground.copy(alpha = 0.78f))
+            .padding(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        TvButton("Live", onClick = onLive)
+        PlayerQuality.entries.forEach { item ->
+            TvButton(
+                label = item.label,
+                selected = quality == item,
+                onClick = { onQuality(item) }
+            )
         }
-    )
+    }
+}
+
+private enum class PlayerQuality(val label: String, val maxWidth: Int, val maxHeight: Int) {
+    Auto("Auto", Int.MAX_VALUE, Int.MAX_VALUE),
+    Source("Source", Int.MAX_VALUE, Int.MAX_VALUE),
+    High("1080p", 1920, 1080),
+    Medium("720p", 1280, 720),
+    Low("480p", 854, 480)
 }
 
 @Composable

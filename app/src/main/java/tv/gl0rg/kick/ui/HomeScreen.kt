@@ -32,31 +32,28 @@ fun HomeScreen(
             TvNavAction("Settings", onClick = onSettings)
         )
     ) {
-        Column {
+        S0undLikeCanvas {
             ScreenTitle(
-                title = "Live streams",
-                subtitle = "Browse Kick from the couch."
+                title = "Followed (${favorites.size})",
+                subtitle = "Browse rows with D-pad. Focused tiles expand."
             )
-            Spacer(Modifier.height(28.dp))
             ChannelRow(
-                title = "Favorites",
+                title = "Followed Channels (${favorites.size})",
                 channels = favorites,
                 emptyText = "Favorite channels from a channel page.",
                 onOpenChannel = onOpenChannel
             )
-            Spacer(Modifier.height(30.dp))
             StreamRow(
-                title = "Browse live",
+                title = "Top Streamers",
                 streams = liveStreams,
                 emptyText = "Public live channels load without login.",
                 onOpenChannel = onOpenChannel
             )
-            Spacer(Modifier.height(30.dp))
             Column {
-                ScreenTitle("Categories")
+                ScreenTitle("Top Games")
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    listOf("Just Chatting", "IRL", "Gaming", "Music", "Sports").forEach { category ->
+                    listOf("Just Chatting", "IRL", "Minecraft", "Grand Theft Auto", "Sports").forEach { category ->
                         TvButton(
                             label = category,
                             onClick = { onBrowseCategory(category) },
@@ -65,12 +62,10 @@ fun HomeScreen(
                     }
                 }
             }
-            Spacer(Modifier.height(30.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 TvButton("Find Channel", onClick = onSearch)
                 TvButton("Sign In", onClick = onLogin)
             }
-            Spacer(Modifier.height(18.dp))
             StatusText(statusMessage)
         }
     }
