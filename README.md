@@ -23,6 +23,8 @@ https://github.com/titanlfg/Gl0rgTV/releases/latest/download/Gl0rgTV.apk
 3. Allow installs from Downloader when Android asks.
 4. Install and open Gl0rgTV.
 
+Future updates can be installed from Gl0rgTV Settings with Check Update.
+
 ## Build
 
 ```powershell

@@ -14,6 +14,10 @@ import androidx.compose.ui.unit.dp
 fun SettingsScreen(
     onBack: () -> Unit,
     onSignOut: () -> Unit,
+    updateStatus: String?,
+    updateAvailable: Boolean,
+    onCheckUpdate: () -> Unit,
+    onInstallUpdate: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     TvShell(
@@ -38,7 +42,13 @@ fun SettingsScreen(
                 InfoTile("Mature gate", "On.", Modifier.weight(1f))
             }
             Spacer(Modifier.height(28.dp))
-            TvButton("Sign Out", onClick = onSignOut)
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                TvButton("Check Update", onClick = onCheckUpdate)
+                TvButton("Install Update", onClick = onInstallUpdate, enabled = updateAvailable)
+                TvButton("Sign Out", onClick = onSignOut)
+            }
+            Spacer(Modifier.height(18.dp))
+            StatusText(updateStatus)
         }
     }
 }

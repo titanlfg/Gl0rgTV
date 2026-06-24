@@ -23,6 +23,11 @@ import tv.gl0rg.kick.ui.HomeScreen
 import tv.gl0rg.kick.ui.LoginScreen
 import tv.gl0rg.kick.ui.SearchScreen
 import tv.gl0rg.kick.ui.SettingsScreen
+import tv.gl0rg.kick.update.AppUpdate
+import tv.gl0rg.kick.update.GitHubUpdateClient
+import tv.gl0rg.kick.update.InstallLaunchResult
+import tv.gl0rg.kick.update.UpdateCheckResult
+import tv.gl0rg.kick.update.UpdateInstaller
 
 sealed interface AppRoute {
     data object Home : AppRoute
@@ -40,7 +45,10 @@ fun Gl0rgTvApp() {
     val statusMessage = remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val sessionProvider = remember { WebViewKickSessionProvider() }
-    val kickClient = remember { WebKickClient(OkHttpClient(), sessionProvider) }
+    val httpClient = remember { OkHttpClient() }
+    val kickClient = remember { WebKickClient(httpClient, sessionProvider) }
+    val updateClient = remember { GitHubUpdateClient(httpClient) }
+    val availableUpdate = remember { mutableStateOf<AppUpdate?>(null) }
     val libraryRepository = remember(appContext) {
         val database = Room.databaseBuilder(appContext, LibraryDatabase::class.java, "gl0rgtv-library.db").build()
         RoomLibraryRepository(database.libraryDao())
@@ -90,6 +98,43 @@ fun Gl0rgTvApp() {
                 sessionProvider.clear {
                     statusMessage.value = "Signed out"
                     route.value = AppRoute.Home
+                }
+            },
+            updateStatus = statusMessage.value,
+            updateAvailable = availableUpdate.value != null,
+            onCheckUpdate = {
+                statusMessage.value = "Checking for update"
+                scope.launch {
+                    when (val result = updateClient.check(BuildConfig.VERSION_NAME)) {
+                        is UpdateCheckResult.Available -> {
+                            availableUpdate.value = result.update
+                            statusMessage.value = "Update ${result.update.latestVersion} available"
+                        }
+                        is UpdateCheckResult.Current -> {
+                            availableUpdate.value = null
+                            statusMessage.value = "Up to date (${result.latestVersion})"
+                        }
+                        is UpdateCheckResult.Failed -> statusMessage.value = "Update check failed (${result.reason})"
+                    }
+                }
+            },
+            onInstallUpdate = {
+                val update = availableUpdate.value
+                if (update == null) {
+                    statusMessage.value = "Check for update first"
+                } else {
+                    statusMessage.value = "Downloading ${update.latestVersion}"
+                    scope.launch {
+                        runCatching { updateClient.download(appContext, update) }
+                            .onSuccess { apkFile ->
+                                statusMessage.value = when (val installResult = UpdateInstaller.launch(appContext, apkFile)) {
+                                    InstallLaunchResult.InstallerOpened -> "Installer opened"
+                                    InstallLaunchResult.PermissionSettingsOpened -> "Allow installs, then install again"
+                                    is InstallLaunchResult.Failed -> "Installer failed (${installResult.reason})"
+                                }
+                            }
+                            .onFailure { statusMessage.value = "Download failed (${it.message ?: "unknown"})" }
+                    }
                 }
             }
         )
