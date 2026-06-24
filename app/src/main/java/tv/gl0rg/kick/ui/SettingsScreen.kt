@@ -14,6 +14,8 @@ import androidx.compose.ui.unit.dp
 fun SettingsScreen(
     onBack: () -> Unit,
     onSignOut: () -> Unit,
+    isLoggedIn: Boolean,
+    onRefreshLogin: () -> Unit,
     updateStatus: String?,
     updateAvailable: Boolean,
     onCheckUpdate: () -> Unit,
@@ -39,12 +41,13 @@ fun SettingsScreen(
             ) {
                 InfoTile("Player mode", "Native HLS first, Kick WebView fallback.", Modifier.weight(1f))
                 InfoTile("Quality", "Auto.", Modifier.weight(1f))
-                InfoTile("Mature gate", "On.", Modifier.weight(1f))
+                InfoTile("Kick session", if (isLoggedIn) "Logged in." else "Not logged in.", Modifier.weight(1f))
             }
             Spacer(Modifier.height(28.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 TvButton("Check Update", onClick = onCheckUpdate)
                 TvButton("Install Update", onClick = onInstallUpdate, enabled = updateAvailable)
+                TvButton("Refresh Login", onClick = onRefreshLogin)
                 TvButton("Sign Out", onClick = onSignOut)
             }
             Spacer(Modifier.height(18.dp))

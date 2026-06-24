@@ -55,6 +55,7 @@ fun Gl0rgTvApp() {
     val availableUpdate = remember { mutableStateOf<AppUpdate?>(null) }
     val localLoginServer = remember { LocalCookieLoginServer(sessionProvider) }
     val localLoginUrl = remember { mutableStateOf<String?>(null) }
+    val isLoggedIn = remember { mutableStateOf(sessionProvider.hasSession()) }
     val favoriteChannels = remember { mutableStateOf<List<KickChannel>>(emptyList()) }
     val liveStreams = remember { mutableStateOf<List<KickStream>>(emptyList()) }
     val searchResults = remember { mutableStateOf<List<KickChannel>>(emptyList()) }
@@ -105,6 +106,7 @@ fun Gl0rgTvApp() {
             scope = scope,
             onLogin = {
                 scope.launch {
+                    isLoggedIn.value = true
                     statusMessage.value = "Kick session linked"
                     localLoginServer.stop()
                     route.value = AppRoute.Home
@@ -170,7 +172,10 @@ fun Gl0rgTvApp() {
         AppRoute.Login -> LoginScreen(
             localLoginUrl = localLoginUrl.value,
             statusMessage = statusMessage.value,
-            onBack = { route.value = AppRoute.Home },
+            onBack = {
+                localLoginServer.stop()
+                route.value = AppRoute.Home
+            },
             onRestartServer = {
                 localLoginServer.stop()
                 startLocalLoginServer()
@@ -180,9 +185,16 @@ fun Gl0rgTvApp() {
             onBack = { route.value = AppRoute.Home },
             onSignOut = {
                 sessionProvider.clear {
+                    isLoggedIn.value = false
                     statusMessage.value = "Signed out"
                     route.value = AppRoute.Home
                 }
+            },
+            isLoggedIn = isLoggedIn.value,
+            onRefreshLogin = {
+                route.value = AppRoute.Login
+                localLoginServer.stop()
+                startLocalLoginServer()
             },
             updateStatus = statusMessage.value,
             updateAvailable = availableUpdate.value != null,

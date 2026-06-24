@@ -26,8 +26,8 @@ fun LoginScreen(
     ) {
         Column {
             ScreenTitle(
-                title = "Login",
-                subtitle = "Use a phone or computer on the same network."
+                title = "Link Kick Session",
+                subtitle = "Use a phone or computer on the same network. No TV browser needed."
             )
             Spacer(Modifier.height(28.dp))
             InfoTile(
@@ -36,16 +36,16 @@ fun LoginScreen(
             )
             Spacer(Modifier.height(20.dp))
             InfoTile(
-                title = "Paste Kick session",
-                body = "Sign in to Kick on your phone or computer, copy the Kick Cookie header, paste it into the Gl0rgTV page, then submit."
+                title = "Paste Cookie header",
+                body = "Log into Kick in your normal browser, copy the Kick Cookie header, paste it into the page, then submit."
             )
             Spacer(Modifier.height(24.dp))
-            TvButton("Restart Login Server", onClick = onRestartServer)
+            TvButton("New Login Link", onClick = onRestartServer)
             Spacer(Modifier.height(18.dp))
             StatusText(statusMessage)
             Spacer(Modifier.height(18.dp))
             Text(
-                text = "Kick does not provide a stable TV device login flow like Twitch. This keeps login out of the TV WebView.",
+                text = "Session lasts until Kick expires the cookie or you sign out.",
                 color = Gl0rgMuted,
                 fontSize = 14.sp
             )

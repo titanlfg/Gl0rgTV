@@ -80,6 +80,7 @@ class LocalCookieLoginServer(
         <body style="font-family:sans-serif;background:#53FC18;color:#071007;padding:24px">
         <h1>Gl0rgTV</h1>
         <p>Paste your Kick Cookie header from a logged-in browser session.</p>
+        <p style="font-size:14px">It can start with <code>Cookie:</code> or just contain values like <code>kick_session=...</code>.</p>
         <form method="post">
         <textarea name="cookie" rows="8" style="width:100%;font-size:16px"></textarea>
         <button style="font-size:18px;margin-top:12px;padding:12px 18px">Link Gl0rgTV</button>
@@ -92,7 +93,7 @@ class LocalCookieLoginServer(
         <!doctype html>
         <html><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>$title</title></head>
         <body style="font-family:sans-serif;background:#53FC18;color:#071007;padding:24px">
-        <h1>$title</h1><p>$body</p>
+        <h1>$title</h1><p>$body</p><p>You can close this browser tab.</p>
         </body></html>
     """.trimIndent()
 
