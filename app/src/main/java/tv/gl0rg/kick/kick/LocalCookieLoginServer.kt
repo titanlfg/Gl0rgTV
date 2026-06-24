@@ -45,20 +45,22 @@ class LocalCookieLoginServer(
                             val response = if (requestLine.startsWith("POST")) {
                                 val cookie = formValue(body, "cookie")
                                 if (cookie.isBlank()) {
-                                    html("Missing cookie", "Paste the Kick Cookie header, then submit again.")
+                                    httpResponse(html("Missing cookie", "Paste the Kick Cookie header, then submit again."))
                                 } else {
                                     sessionProvider.importCookieHeader(cookie)
                                     if (sessionProvider.hasSession()) {
                                         onLogin()
-                                        html("Gl0rgTV linked", "Return to your Android TV.")
+                                        httpResponse(html("Gl0rgTV linked", "Return to your Android TV."))
                                     } else {
-                                        html("Cookie saved", "Gl0rgTV did not detect a Kick session cookie. Check the pasted value.")
+                                        httpResponse(html("Cookie saved", "Gl0rgTV did not detect a Kick session cookie. Check the pasted value."))
                                     }
                                 }
+                            } else if (requestLine.startsWith("GET /kick")) {
+                                redirect("https://kick.com/")
                             } else {
-                                formHtml()
+                                httpResponse(formHtml())
                             }
-                            it.getOutputStream().write(httpResponse(response).toByteArray(StandardCharsets.UTF_8))
+                            it.getOutputStream().write(response.toByteArray(StandardCharsets.UTF_8))
                         }
                     }.onFailure { onError(it.message ?: "local_login_server_error") }
                 }
@@ -76,14 +78,35 @@ class LocalCookieLoginServer(
     private fun formHtml(): String = """
         <!doctype html>
         <html>
-        <head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Gl0rgTV Login</title></head>
-        <body style="font-family:sans-serif;background:#53FC18;color:#071007;padding:24px">
-        <h1>Gl0rgTV</h1>
-        <p>Paste your Kick Cookie header from a logged-in browser session.</p>
-        <p style="font-size:14px">It can start with <code>Cookie:</code> or just contain values like <code>kick_session=...</code>.</p>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Gl0rgTV Login</title>
+          <style>
+            body{font-family:Arial,sans-serif;background:#53FC18;color:#071007;padding:24px;line-height:1.35}
+            h1{font-size:34px;margin:0 0 24px}
+            li{margin:14px 0}
+            a.login{display:block;text-align:center;font-size:28px;font-weight:800;color:#071007;margin:22px 0}
+            textarea{width:100%;font-size:16px;box-sizing:border-box}
+            button{font-size:20px;font-weight:800;margin:18px auto 0;display:block;padding:14px 42px;background:#071007;color:white;border:0}
+            code{background:white;padding:2px 4px}
+          </style>
+        </head>
+        <body>
+        <h1>Follow these steps to login:</h1>
+        <ol>
+          <li><b>Read all steps first.</b></li>
+          <li>Tap the link below and log in to official Kick as usual.</li>
+        </ol>
+        <a class="login" href="/kick">Login with Kick</a>
+        <ol start="3">
+          <li>After Kick is logged in, copy your Kick <b>Cookie</b> header/session value from the browser.</li>
+          <li>Come back to this page and paste it into the token box.</li>
+          <li>Press Submit. On success, Gl0rgTV closes the login screen.</li>
+        </ol>
+        <p>Token link:</p>
         <form method="post">
-        <textarea name="cookie" rows="8" style="width:100%;font-size:16px"></textarea>
-        <button style="font-size:18px;margin-top:12px;padding:12px 18px">Link Gl0rgTV</button>
+        <textarea name="cookie" rows="7" placeholder="Cookie: kick_session=...; laravel_session=..."></textarea>
+        <button>Submit</button>
         </form>
         </body>
         </html>
@@ -99,6 +122,9 @@ class LocalCookieLoginServer(
 
     private fun httpResponse(body: String): String =
         "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: ${body.toByteArray(StandardCharsets.UTF_8).size}\r\nConnection: close\r\n\r\n$body"
+
+    private fun redirect(location: String): String =
+        "HTTP/1.1 302 Found\r\nLocation: $location\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
 
     private fun formValue(body: String, key: String): String =
         body.split("&")
