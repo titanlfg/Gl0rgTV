@@ -148,10 +148,6 @@ fun Gl0rgTvApp() {
     when (val currentRoute = route.value) {
         AppRoute.Home -> HomeScreen(
             onSearch = { route.value = AppRoute.Search },
-            onLogin = {
-                route.value = AppRoute.Login
-                startLocalLoginServer()
-            },
             onSettings = { route.value = AppRoute.Settings },
             onOpenChannel = openChannel,
             onBrowseCategory = { category ->

@@ -95,15 +95,15 @@ class LocalCookieLoginServer(
         <h1>Follow these steps to login:</h1>
         <ol>
           <li><b>Read all steps first.</b></li>
-          <li>Tap the link below and log in to official Kick as usual.</li>
+          <li>Tap the link below. It opens the real Kick site. Log in there as usual.</li>
         </ol>
-        <a class="login" href="/kick">Login with Kick</a>
+        <a class="login" href="https://kick.com/">Login with Kick</a>
         <ol start="3">
-          <li>After Kick is logged in, copy your Kick <b>Cookie</b> header/session value from the browser.</li>
-          <li>Come back to this page and paste it into the token box.</li>
+          <li>After Kick is logged in, copy the Kick request <b>Cookie</b> header. On desktop: open DevTools, Network, select a kick.com request, Request Headers, then copy Cookie.</li>
+          <li>Come back to this page and paste the whole Cookie value into the box below.</li>
           <li>Press Submit. On success, Gl0rgTV closes the login screen.</li>
         </ol>
-        <p>Token link:</p>
+        <p>Cookie header:</p>
         <form method="post">
         <textarea name="cookie" rows="7" placeholder="Cookie: kick_session=...; laravel_session=..."></textarea>
         <button>Submit</button>

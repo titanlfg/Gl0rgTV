@@ -4,17 +4,20 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.rememberScrollState
+import kotlinx.coroutines.launch
 import tv.gl0rg.kick.kick.KickChannel
 import tv.gl0rg.kick.kick.KickStream
 
 @Composable
 fun HomeScreen(
     onSearch: () -> Unit,
-    onLogin: () -> Unit,
     onSettings: () -> Unit,
     onOpenChannel: (String) -> Unit,
     onBrowseCategory: (String) -> Unit,
@@ -23,19 +26,46 @@ fun HomeScreen(
     statusMessage: String?,
     modifier: Modifier = Modifier
 ) {
+    val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    fun scrollToSection(position: Int) {
+        scope.launch { scrollState.animateScrollTo(position) }
+    }
+
     TvShell(
         modifier = modifier,
+        onSearch = onSearch,
         navActions = listOf(
-            TvNavAction("Home", selected = true) {},
-            TvNavAction("Search", onClick = onSearch),
-            TvNavAction("Login", onClick = onLogin),
+            TvNavAction("Followed", selected = true) { scrollToSection(0) },
+            TvNavAction("Followed Channels") { scrollToSection(420) },
+            TvNavAction("Top Games") { scrollToSection(650) },
+            TvNavAction("Top Streamers") { scrollToSection(850) },
             TvNavAction("Settings", onClick = onSettings)
         )
     ) {
-        S0undLikeCanvas {
+        S0undLikeCanvas(scrollState = scrollState) {
             ScreenTitle(
                 title = "Followed (${favorites.size})",
-                subtitle = "Browse rows with D-pad. Focused tiles expand."
+                subtitle = "Search is the top-left icon. Settings contains login."
+            )
+            val featured = liveStreams.firstOrNull()
+            if (featured != null) {
+                FeaturedStreamCard(
+                    stream = featured,
+                    onClick = { onOpenChannel(featured.slug) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                InfoTile(
+                    title = "No live preview",
+                    body = "Public Kick channels still browse without login. Search from the top-left icon."
+                )
+            }
+            StreamRow(
+                title = "Followed",
+                streams = liveStreams.take(1),
+                emptyText = "Login from Settings to refresh your Kick session later.",
+                onOpenChannel = onOpenChannel
             )
             ChannelRow(
                 title = "Followed Channels (${favorites.size})",
@@ -64,7 +94,7 @@ fun HomeScreen(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 TvButton("Find Channel", onClick = onSearch)
-                TvButton("Sign In", onClick = onLogin)
+                TvButton("Settings", onClick = onSettings)
             }
             StatusText(statusMessage)
         }

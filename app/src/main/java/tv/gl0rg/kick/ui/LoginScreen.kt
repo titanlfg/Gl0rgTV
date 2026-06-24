@@ -43,7 +43,7 @@ fun LoginScreen(
                     Spacer(Modifier.height(16.dp))
                     InfoTile(
                         title = "Log in on phone",
-                        body = "The page opens Kick in your browser, then returns you to paste the session value."
+                        body = "The page opens real Kick. After login, return to the helper page and paste the Cookie header."
                     )
                 }
             }

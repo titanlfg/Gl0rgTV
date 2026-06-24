@@ -3,6 +3,7 @@ package tv.gl0rg.kick.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,9 +21,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
@@ -35,7 +38,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,6 +68,7 @@ data class TvNavAction(
 fun TvShell(
     navActions: List<TvNavAction>,
     modifier: Modifier = Modifier,
+    onSearch: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
     Row(
@@ -78,15 +85,14 @@ fun TvShell(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
+                if (onSearch != null) {
+                    SearchIconButton(onClick = onSearch)
+                    Spacer(Modifier.height(24.dp))
+                }
                 Gl0rgWordmark()
                 Spacer(Modifier.height(34.dp))
                 navActions.forEach { action ->
-                    TvButton(
-                        label = action.label,
-                        selected = action.selected,
-                        onClick = action.onClick,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    SideNavItem(action)
                     Spacer(Modifier.height(12.dp))
                 }
             }
@@ -104,6 +110,76 @@ fun TvShell(
                 .padding(start = 18.dp)
         ) {
             content()
+        }
+    }
+}
+
+@Composable
+fun SideNavItem(action: TvNavAction, modifier: Modifier = Modifier) {
+    var focused by remember { mutableStateOf(false) }
+    val active = focused || action.selected
+    val color by animateColorAsState(
+        if (active) Gl0rgText else Gl0rgMuted,
+        label = "sideNavColor"
+    )
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(46.dp)
+            .onFocusChanged { focused = it.isFocused }
+            .clickable(onClick = action.onClick),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier
+                .width(5.dp)
+                .height(if (active) 34.dp else 0.dp)
+                .background(KickGreen, RoundedCornerShape(3.dp))
+        )
+        Spacer(Modifier.width(14.dp))
+        Text(
+            text = action.label,
+            color = color,
+            fontSize = if (active) 24.sp else 21.sp,
+            fontWeight = if (active) FontWeight.Black else FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+fun SearchIconButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var focused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (focused) 1.12f else 1f, label = "searchIconScale")
+    Box(
+        modifier = modifier
+            .width(72.dp)
+            .height(72.dp)
+            .scale(scale)
+            .background(if (focused) KickGreen else Color(0xFFE90073), RoundedCornerShape(36.dp))
+            .border(2.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(36.dp))
+            .onFocusChanged { focused = it.isFocused }
+            .clickable(onClick = onClick)
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val stroke = Stroke(width = 6f, cap = StrokeCap.Round)
+            drawCircle(
+                color = Color.White,
+                radius = size.minDimension * 0.19f,
+                center = Offset(size.width * 0.45f, size.height * 0.42f),
+                style = stroke
+            )
+            drawLine(
+                color = Color.White,
+                start = Offset(size.width * 0.58f, size.height * 0.58f),
+                end = Offset(size.width * 0.72f, size.height * 0.72f),
+                strokeWidth = 6f,
+                cap = StrokeCap.Round
+            )
         }
     }
 }
@@ -306,11 +382,82 @@ fun StreamRow(
 }
 
 @Composable
-fun S0undLikeCanvas(content: @Composable ColumnScope.() -> Unit) {
+fun FeaturedStreamCard(
+    stream: KickStream,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var focused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (focused) 1.025f else 1f, label = "featuredCardScale")
+    Card(
+        modifier = modifier
+            .height(300.dp)
+            .scale(scale)
+            .onFocusChanged { focused = it.isFocused }
+            .clickable(onClick = onClick)
+            .border(
+                width = if (focused) 4.dp else 1.dp,
+                color = if (focused) KickGreen else Color(0xFF222A24),
+                shape = RoundedCornerShape(8.dp)
+            ),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = if (focused) KickGreen else Gl0rgPanelSoft)
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            if (!stream.thumbnailUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = stream.thumbnailUrl,
+                    contentDescription = stream.slug,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            Box(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .padding(16.dp)
+                    .background(Color(0xFFE1003C), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text("LIVE", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Black)
+            }
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .background(if (focused) KickGreen else Color(0xDD0A0D0B))
+                    .padding(18.dp)
+            ) {
+                Text(
+                    text = stream.slug,
+                    color = if (focused) Gl0rgBackground else Gl0rgText,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = listOfNotNull(stream.category, stream.viewerCount?.let { "$it viewers" }).joinToString(" | ")
+                        .ifBlank { "Kick live stream" },
+                    color = if (focused) Gl0rgBackground.copy(alpha = 0.82f) else Gl0rgMuted,
+                    fontSize = 16.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun S0undLikeCanvas(
+    scrollState: androidx.compose.foundation.ScrollState = rememberScrollState(),
+    content: @Composable ColumnScope.() -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(end = 28.dp, bottom = 42.dp),
         verticalArrangement = Arrangement.spacedBy(26.dp),
         content = content
@@ -329,7 +476,7 @@ fun PreviewCard(
     val scale by animateFloatAsState(if (focused) 1.12f else 1f, label = "previewCardScale")
     Column(
         modifier = modifier
-            .width(if (focused) 300.dp else 220.dp)
+            .width(220.dp)
             .scale(scale)
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onClick)
