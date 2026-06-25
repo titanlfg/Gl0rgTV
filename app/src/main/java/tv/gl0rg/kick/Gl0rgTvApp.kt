@@ -12,6 +12,7 @@ import tv.gl0rg.kick.kick.KickChannel
 import tv.gl0rg.kick.kick.KickStream
 import tv.gl0rg.kick.kick.KickVideo
 import tv.gl0rg.kick.kick.LocalCookieLoginServer
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import tv.gl0rg.kick.kick.KickResult
@@ -61,6 +62,7 @@ fun Gl0rgTvApp() {
     val liveStreams = remember { mutableStateOf<List<KickStream>>(emptyList()) }
     val categoryStreams = remember { mutableStateOf<List<KickStream>>(emptyList()) }
     val selectedCategory = remember { mutableStateOf("Just Chatting") }
+    val selectedCategorySlug = remember { mutableStateOf("just-chatting") }
     val searchResults = remember { mutableStateOf<List<KickChannel>>(emptyList()) }
     val searchHistory = remember { mutableStateOf<List<String>>(emptyList()) }
     val libraryRepository = remember(appContext) {
@@ -69,7 +71,15 @@ fun Gl0rgTvApp() {
     }
 
     suspend fun refreshFavorites() {
-        favoriteChannels.value = libraryRepository.favorites().map { it.toKickChannel() }
+        favoriteChannels.value = libraryRepository.favorites().map { favorite ->
+            when (val result = kickClient.getChannel(favorite.slug)) {
+                is KickResult.Success -> result.value.copy(
+                    displayName = result.value.safeDisplayName.ifBlank { favorite.displayName },
+                    avatarUrl = result.value.avatarUrl ?: favorite.avatarUrl
+                )
+                is KickResult.Failure -> favorite.toKickChannel()
+            }
+        }
     }
 
     suspend fun refreshBrowse() {
@@ -79,17 +89,22 @@ fun Gl0rgTvApp() {
         }
     }
 
-    fun loadCategory(name: String, slug: String) {
+    suspend fun refreshCategory(name: String, slug: String, announce: Boolean) {
         selectedCategory.value = name
-        statusMessage.value = "Loading $name"
-        scope.launch {
-            when (val result = kickClient.getCategoryStreams(slug)) {
-                is KickResult.Success -> {
-                    categoryStreams.value = result.value
-                    statusMessage.value = "${result.value.size} live in $name"
-                }
-                is KickResult.Failure -> statusMessage.value = "Category load failed (${result.reason})"
+        selectedCategorySlug.value = slug
+        if (announce) statusMessage.value = "Loading $name"
+        when (val result = kickClient.getCategoryStreams(slug)) {
+            is KickResult.Success -> {
+                categoryStreams.value = result.value
+                if (announce) statusMessage.value = "${result.value.size} live in $name"
             }
+            is KickResult.Failure -> if (announce) statusMessage.value = "Category load failed (${result.reason})"
+        }
+    }
+
+    fun loadCategory(name: String, slug: String) {
+        scope.launch {
+            refreshCategory(name, slug, announce = true)
         }
     }
 
@@ -140,7 +155,13 @@ fun Gl0rgTvApp() {
     LaunchedEffect(Unit) {
         refreshFavorites()
         refreshBrowse()
-        loadCategory("Just Chatting", "just-chatting")
+        refreshCategory("Just Chatting", "just-chatting", announce = true)
+        while (true) {
+            delay(120_000)
+            refreshFavorites()
+            refreshBrowse()
+            refreshCategory(selectedCategory.value, selectedCategorySlug.value, announce = false)
+        }
     }
 
     val openChannel: (String) -> Unit = { input ->

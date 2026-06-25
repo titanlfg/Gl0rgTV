@@ -1,6 +1,10 @@
 package tv.gl0rg.kick.player
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.net.Uri
+import android.view.WindowManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
@@ -47,6 +51,13 @@ import tv.gl0rg.kick.ui.TvButton
 
 @Composable
 fun PlayerScreen(route: PlaybackRoute, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    DisposableEffect(context) {
+        val window = context.findActivity()?.window
+        window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         when (route) {
             is PlaybackRoute.Native -> NativePlayer(route.hlsUrl, isLive = route.isLive)
@@ -288,3 +299,10 @@ private fun Uri.isKickHttpsHost(): Boolean {
     val host = host?.lowercase() ?: return false
     return scheme == "https" && (host == "kick.com" || host.endsWith(".kick.com"))
 }
+
+private tailrec fun Context.findActivity(): Activity? =
+    when (this) {
+        is Activity -> this
+        is ContextWrapper -> baseContext.findActivity()
+        else -> null
+    }

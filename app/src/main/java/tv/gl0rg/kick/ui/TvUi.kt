@@ -33,11 +33,14 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -55,10 +58,18 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.hls.HlsMediaSource
+import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import tv.gl0rg.kick.kick.KickChannel
 import tv.gl0rg.kick.kick.KickStream
@@ -75,6 +86,22 @@ data class TvNavAction(
     val selected: Boolean = false,
     val onClick: () -> Unit
 )
+
+private val LocalOpenTvMenu = staticCompositionLocalOf<(() -> Unit)?> { null }
+
+private fun Modifier.openTvMenuOnKey(openMenu: (() -> Unit)?): Modifier =
+    if (openMenu == null) {
+        this
+    } else {
+        onPreviewKeyEvent { event ->
+            if (event.type == KeyEventType.KeyDown && (event.key == Key.DirectionLeft || event.key == Key.Menu)) {
+                openMenu()
+                true
+            } else {
+                false
+            }
+        }
+    }
 
 @Composable
 fun TvShell(
@@ -93,34 +120,35 @@ fun TvShell(
         }
     }
 
-    Row(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Gl0rgBackground)
-            .padding(24.dp)
-            .onPreviewKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                when (event.key) {
-                    Key.DirectionLeft -> {
-                        if (!navOpen) {
-                            navOpen = true
-                            true
-                        } else {
-                            false
+    CompositionLocalProvider(LocalOpenTvMenu provides { navOpen = true }) {
+        Row(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Gl0rgBackground)
+                .padding(24.dp)
+                .onPreviewKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    when (event.key) {
+                        Key.DirectionLeft, Key.Menu -> {
+                            if (!navOpen) {
+                                navOpen = true
+                                true
+                            } else {
+                                false
+                            }
                         }
-                    }
-                    Key.DirectionRight -> {
-                        if (navOpen) {
-                            navOpen = false
-                            true
-                        } else {
-                            false
+                        Key.DirectionRight -> {
+                            if (navOpen) {
+                                navOpen = false
+                                true
+                            } else {
+                                false
+                            }
                         }
+                        else -> false
                     }
-                    else -> false
                 }
-            }
-    ) {
+        ) {
         if (navOpen) {
             Column(
                 modifier = Modifier
@@ -191,6 +219,7 @@ fun TvShell(
                 )
             }
         }
+        }
     }
 }
 
@@ -244,6 +273,7 @@ fun SearchIconButton(
     modifier: Modifier = Modifier
 ) {
     var focused by remember { mutableStateOf(false) }
+    val openMenu = LocalOpenTvMenu.current
     val scale by animateFloatAsState(if (focused) 1.12f else 1f, label = "searchIconScale")
     Box(
         modifier = modifier
@@ -254,6 +284,7 @@ fun SearchIconButton(
             .border(2.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(36.dp))
             .onFocusChanged { focused = it.isFocused }
             .focusable()
+            .openTvMenuOnKey(openMenu)
             .clickable(onClick = onClick)
     ) {
         Canvas(Modifier.fillMaxSize()) {
@@ -304,6 +335,7 @@ fun TvButton(
     enabled: Boolean = true
 ) {
     var focused by remember { mutableStateOf(false) }
+    val openMenu = LocalOpenTvMenu.current
     val active = focused || selected
     val scale by animateFloatAsState(if (focused) 1.025f else 1f, label = "tvButtonScale")
     val background by animateColorAsState(
@@ -334,6 +366,7 @@ fun TvButton(
             .height(54.dp)
             .scale(scale)
             .onFocusChanged { focused = it.isFocused }
+            .openTvMenuOnKey(openMenu)
     ) {
         Text(
             text = label,
@@ -432,8 +465,11 @@ fun ChannelRow(
                 channels.take(12).forEach { channel ->
                     PreviewCard(
                         title = channel.safeDisplayName,
-                        subtitle = channel.slug,
-                        imageUrl = channel.avatarUrl,
+                        subtitle = channel.stream?.let {
+                            listOfNotNull("LIVE", it.category, it.viewerCount?.let { count -> "$count viewers" }).joinToString(" | ")
+                        } ?: channel.slug,
+                        imageUrl = channel.stream?.thumbnailUrl ?: channel.avatarUrl,
+                        previewHlsUrl = channel.stream?.hlsUrl,
                         onClick = { onOpenChannel(channel.slug) }
                     )
                 }
@@ -470,6 +506,7 @@ fun StreamRow(
                         title = stream.slug,
                         subtitle = stream.category ?: "${stream.viewerCount ?: 0} viewers",
                         imageUrl = stream.thumbnailUrl,
+                        previewHlsUrl = stream.hlsUrl,
                         onClick = { onOpenChannel(stream.slug) }
                     )
                 }
@@ -567,10 +604,12 @@ fun PreviewCard(
     title: String,
     subtitle: String,
     imageUrl: String?,
+    previewHlsUrl: String? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var focused by remember { mutableStateOf(false) }
+    val openMenu = LocalOpenTvMenu.current
     val scale by animateFloatAsState(if (focused) 1.045f else 1f, label = "previewCardScale")
     Column(
         modifier = modifier
@@ -578,6 +617,7 @@ fun PreviewCard(
             .scale(scale)
             .onFocusChanged { focused = it.isFocused }
             .focusable()
+            .openTvMenuOnKey(openMenu)
             .clickable(onClick = onClick)
             .border(
                 width = if (focused) 4.dp else 1.dp,
@@ -592,7 +632,12 @@ fun PreviewCard(
                 .aspectRatio(16f / 9f)
                 .background(Color(0xFF202820), RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
         ) {
-            if (!imageUrl.isNullOrBlank()) {
+            if (focused && !previewHlsUrl.isNullOrBlank()) {
+                FocusedLivePreview(
+                    hlsUrl = previewHlsUrl,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else if (!imageUrl.isNullOrBlank()) {
                 AsyncImage(
                     model = imageUrl,
                     contentDescription = title,
@@ -627,4 +672,47 @@ fun PreviewCard(
             )
         }
     }
+}
+
+@Composable
+private fun FocusedLivePreview(
+    hlsUrl: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val player = remember(hlsUrl) {
+        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+            .setUserAgent("Mozilla/5.0 (Android TV; Gl0rgTV)")
+            .setDefaultRequestProperties(
+                mapOf(
+                    "Origin" to "https://kick.com",
+                    "Referer" to "https://kick.com/"
+                )
+            )
+        val mediaSource = HlsMediaSource.Factory(httpDataSourceFactory)
+            .createMediaSource(MediaItem.fromUri(hlsUrl))
+        ExoPlayer.Builder(context).build().apply {
+            volume = 0f
+            repeatMode = Player.REPEAT_MODE_OFF
+            setMediaSource(mediaSource)
+            prepare()
+            playWhenReady = true
+        }
+    }
+
+    DisposableEffect(player) {
+        onDispose { player.release() }
+    }
+
+    AndroidView(
+        modifier = modifier,
+        factory = {
+            PlayerView(it).apply {
+                useController = false
+                this.player = player
+            }
+        },
+        update = { it.player = player },
+        onRelease = { it.player = null }
+    )
 }
