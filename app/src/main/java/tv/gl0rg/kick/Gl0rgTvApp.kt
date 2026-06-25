@@ -59,7 +59,10 @@ fun Gl0rgTvApp() {
     val isLoggedIn = remember { mutableStateOf(sessionProvider.hasSession()) }
     val favoriteChannels = remember { mutableStateOf<List<KickChannel>>(emptyList()) }
     val liveStreams = remember { mutableStateOf<List<KickStream>>(emptyList()) }
+    val categoryStreams = remember { mutableStateOf<List<KickStream>>(emptyList()) }
+    val selectedCategory = remember { mutableStateOf("Just Chatting") }
     val searchResults = remember { mutableStateOf<List<KickChannel>>(emptyList()) }
+    val searchHistory = remember { mutableStateOf<List<String>>(emptyList()) }
     val libraryRepository = remember(appContext) {
         val database = Room.databaseBuilder(appContext, LibraryDatabase::class.java, "gl0rgtv-library.db").build()
         RoomLibraryRepository(database.libraryDao())
@@ -76,12 +79,27 @@ fun Gl0rgTvApp() {
         }
     }
 
+    fun loadCategory(name: String, slug: String) {
+        selectedCategory.value = name
+        statusMessage.value = "Loading $name"
+        scope.launch {
+            when (val result = kickClient.getCategoryStreams(slug)) {
+                is KickResult.Success -> {
+                    categoryStreams.value = result.value
+                    statusMessage.value = "${result.value.size} live in $name"
+                }
+                is KickResult.Failure -> statusMessage.value = "Category load failed (${result.reason})"
+            }
+        }
+    }
+
     fun runSearch(input: String) {
         val query = input.trim()
         if (query.isBlank()) {
             statusMessage.value = "Enter search text"
             return
         }
+        searchHistory.value = (listOf(query) + searchHistory.value.filterNot { it.equals(query, ignoreCase = true) }).take(8)
         statusMessage.value = "Searching $query"
         scope.launch {
             when (val result = kickClient.searchChannels(query)) {
@@ -122,6 +140,7 @@ fun Gl0rgTvApp() {
     LaunchedEffect(Unit) {
         refreshFavorites()
         refreshBrowse()
+        loadCategory("Just Chatting", "just-chatting")
     }
 
     val openChannel: (String) -> Unit = { input ->
@@ -155,19 +174,24 @@ fun Gl0rgTvApp() {
             onSearch = { route.value = AppRoute.Search },
             onSettings = { route.value = AppRoute.Settings },
             onOpenChannel = openChannel,
-            onBrowseCategory = { category ->
-                route.value = AppRoute.Search
-                runSearch(category)
+            onBrowseCategory = { name, slug ->
+                loadCategory(name, slug)
             },
             favorites = favoriteChannels.value,
             liveStreams = liveStreams.value,
+            selectedCategory = selectedCategory.value,
+            categoryStreams = categoryStreams.value,
             statusMessage = statusMessage.value
         )
         AppRoute.Search -> SearchScreen(
             onBack = { route.value = AppRoute.Home },
             onSearch = { runSearch(it) },
+            onClearHistory = {
+                searchHistory.value = emptyList()
+            },
             onOpenChannel = openChannel,
             results = searchResults.value,
+            history = searchHistory.value,
             statusMessage = statusMessage.value
         )
         AppRoute.Login -> LoginScreen(

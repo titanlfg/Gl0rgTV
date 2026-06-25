@@ -13,6 +13,7 @@ interface KickClient {
     suspend fun getChannel(slug: String): KickResult<KickChannel>
     suspend fun searchChannels(query: String): KickResult<KickSearchResults>
     suspend fun getLiveStreams(): KickResult<List<KickStream>>
+    suspend fun getCategoryStreams(categorySlug: String): KickResult<List<KickStream>>
     suspend fun getFollowedChannels(): KickResult<List<KickChannel>>
     suspend fun getChannelVideos(slug: String): KickResult<List<KickVideo>>
 }
@@ -78,7 +79,6 @@ class WebKickClient(
                     .addPathSegments("stream/livestreams/en")
                     .addQueryParameter("page", "1")
                     .addQueryParameter("limit", "40")
-                    .addQueryParameter("sort", "viewer_count")
                     .build()
             )
             .kickHeaders(referer = "/")
@@ -89,8 +89,30 @@ class WebKickClient(
             val body = httpClient.newCall(request).execute().use { response ->
                 response.body?.string().orEmpty()
             }
-            KickResult.Success(KickJsonParsers.parseLiveStreams(body).take(MAX_LIVE_STREAM_CANDIDATES))
+            KickResult.Success(KickJsonParsers.parseLiveStreams(body).sortedByDescending { it.viewerCount ?: 0 }.take(MAX_LIVE_STREAM_CANDIDATES))
         }.getOrElse { KickResult.Failure("live_streams_request_failed", it) }
+    }
+
+    override suspend fun getCategoryStreams(categorySlug: String): KickResult<List<KickStream>> = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(
+                baseUrl.newBuilder()
+                    .addPathSegments("stream/livestreams/en")
+                    .addQueryParameter("subcategory", categorySlug)
+                    .addQueryParameter("page", "1")
+                    .addQueryParameter("limit", "40")
+                    .build()
+            )
+            .kickHeaders(referer = "/browse/$categorySlug")
+            .applySessionCookie()
+            .build()
+
+        runCatching {
+            val body = httpClient.newCall(request).execute().use { response ->
+                response.body?.string().orEmpty()
+            }
+            KickResult.Success(KickJsonParsers.parseLiveStreams(body).sortedByDescending { it.viewerCount ?: 0 }.take(MAX_LIVE_STREAM_CANDIDATES))
+        }.getOrElse { KickResult.Failure("category_streams_request_failed", it) }
     }
 
     override suspend fun getFollowedChannels(): KickResult<List<KickChannel>> = withContext(Dispatchers.IO) {

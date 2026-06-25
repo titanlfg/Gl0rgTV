@@ -8,6 +8,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
@@ -73,7 +76,7 @@ fun TvShell(
     content: @Composable () -> Unit
 ) {
     var navFocused by remember { mutableStateOf(false) }
-    val navWidth by animateDpAsState(if (navFocused) 250.dp else 92.dp, label = "navWidth")
+    val navWidth by animateDpAsState(if (navFocused) 250.dp else 1.dp, label = "navWidth")
     Row(
         modifier = modifier
             .fillMaxSize()
@@ -84,7 +87,8 @@ fun TvShell(
             modifier = Modifier
                 .width(navWidth)
                 .fillMaxHeight()
-                .padding(end = if (navFocused) 24.dp else 10.dp)
+                .alpha(if (navFocused) 1f else 0f)
+                .padding(end = if (navFocused) 24.dp else 0.dp)
                 .onFocusChanged { navFocused = it.hasFocus },
             verticalArrangement = Arrangement.SpaceBetween
         ) {
@@ -113,7 +117,7 @@ fun TvShell(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .padding(start = 18.dp)
+                .padding(start = if (navFocused) 18.dp else 0.dp)
         ) {
             content()
         }
@@ -133,6 +137,7 @@ fun SideNavItem(action: TvNavAction, expanded: Boolean, modifier: Modifier = Mod
             .fillMaxWidth()
             .height(46.dp)
             .onFocusChanged { focused = it.isFocused }
+            .focusable()
             .clickable(onClick = action.onClick),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -178,6 +183,7 @@ fun SearchIconButton(
             .background(if (focused) KickGreen else Color(0xFFE90073), RoundedCornerShape(36.dp))
             .border(2.dp, if (focused) Color.White else Color.Transparent, RoundedCornerShape(36.dp))
             .onFocusChanged { focused = it.isFocused }
+            .focusable()
             .clickable(onClick = onClick)
     ) {
         Canvas(Modifier.fillMaxSize()) {
@@ -312,7 +318,7 @@ fun InfoTile(
             color = Gl0rgMuted,
             fontSize = 14.sp,
             modifier = Modifier.padding(top = 8.dp),
-            maxLines = 3,
+            maxLines = 6,
             overflow = TextOverflow.Ellipsis
         )
     }
@@ -349,8 +355,11 @@ fun ChannelRow(
         if (channels.isEmpty()) {
             Text(text = emptyText, color = Gl0rgMuted, fontSize = 14.sp)
         } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                channels.take(5).forEach { channel ->
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(18.dp)
+            ) {
+                channels.take(12).forEach { channel ->
                     PreviewCard(
                         title = channel.safeDisplayName,
                         subtitle = channel.slug,
@@ -382,8 +391,11 @@ fun StreamRow(
         if (streams.isEmpty()) {
             Text(text = emptyText, color = Gl0rgMuted, fontSize = 14.sp)
         } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                streams.take(5).forEach { stream ->
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(18.dp)
+            ) {
+                streams.take(12).forEach { stream ->
                     PreviewCard(
                         title = stream.slug,
                         subtitle = stream.category ?: "${stream.viewerCount ?: 0} viewers",
@@ -409,6 +421,7 @@ fun FeaturedStreamCard(
             .height(300.dp)
             .scale(scale)
             .onFocusChanged { focused = it.isFocused }
+            .focusable()
             .clickable(onClick = onClick)
             .border(
                 width = if (focused) 4.dp else 1.dp,
@@ -494,6 +507,7 @@ fun PreviewCard(
             .width(220.dp)
             .scale(scale)
             .onFocusChanged { focused = it.isFocused }
+            .focusable()
             .clickable(onClick = onClick)
             .border(
                 width = if (focused) 4.dp else 1.dp,

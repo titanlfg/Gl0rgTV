@@ -1,11 +1,11 @@
 package tv.gl0rg.kick.ui
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -29,37 +29,24 @@ fun SettingsScreen(
             TvNavAction("Settings", selected = true) {}
         )
     ) {
-        Column {
+        S0undLikeCanvas {
             ScreenTitle(
                 title = "Settings",
                 subtitle = "Playback and session controls."
             )
-            Spacer(Modifier.height(28.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(18.dp)
-            ) {
-                InfoTile("Player mode", "Native HLS first, Kick WebView fallback.", Modifier.weight(1f))
-                InfoTile("Quality", "Auto.", Modifier.weight(1f))
-                InfoTile("Kick session", if (isLoggedIn) "Logged in. Use Login / Refresh if Kick asks for a new session." else "Not logged in. Login / Refresh opens QR login helper.", Modifier.weight(1f))
+            InfoTile("Player mode", "Native HLS first, Kick WebView fallback.", Modifier.fillMaxWidth(0.86f))
+            InfoTile("Quality", "Auto by default. Player overlay offers Auto, 1080p, 720p, and 480p.", Modifier.fillMaxWidth(0.86f))
+            InfoTile("Kick session", if (isLoggedIn) "Logged in. Use Login / Refresh if Kick asks for a new session." else "Not logged in. Login / Refresh opens QR login helper.", Modifier.fillMaxWidth(0.86f))
+            InfoTile("Remote shortcuts", "OK opens controls. Back exits player. Live catches up stream.", Modifier.fillMaxWidth(0.86f))
+            InfoTile("Custom binds", "Shortcut remapping screen planned after device testing.", Modifier.fillMaxWidth(0.86f))
+            Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(14.dp)) {
+                TvButton("Check Update", onClick = onCheckUpdate, modifier = Modifier.width(180.dp))
+                TvButton("Install Update", onClick = onInstallUpdate, enabled = updateAvailable, modifier = Modifier.width(180.dp))
             }
-            Spacer(Modifier.height(20.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(18.dp)
-            ) {
-                InfoTile("Remote shortcuts", "OK: controls. Back: exit player. Live: catch up stream.", Modifier.weight(1f))
-                InfoTile("Quality selector", "Use player overlay to switch Auto, 1080p, 720p, or 480p.", Modifier.weight(1f))
-                InfoTile("Custom binds", "Shortcut remapping screen planned after device testing.", Modifier.weight(1f))
+            Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(14.dp)) {
+                TvButton("Login / Refresh", onClick = onRefreshLogin, modifier = Modifier.width(180.dp))
+                TvButton("Sign Out", onClick = onSignOut, modifier = Modifier.width(180.dp))
             }
-            Spacer(Modifier.height(28.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                TvButton("Check Update", onClick = onCheckUpdate)
-                TvButton("Install Update", onClick = onInstallUpdate, enabled = updateAvailable)
-                TvButton("Login / Refresh", onClick = onRefreshLogin)
-                TvButton("Sign Out", onClick = onSignOut)
-            }
-            Spacer(Modifier.height(18.dp))
             StatusText(updateStatus)
         }
     }

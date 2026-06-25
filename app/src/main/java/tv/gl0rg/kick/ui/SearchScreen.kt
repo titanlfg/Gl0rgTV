@@ -1,10 +1,13 @@
 package tv.gl0rg.kick.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -21,8 +24,10 @@ import tv.gl0rg.kick.kick.KickChannel
 fun SearchScreen(
     onBack: () -> Unit,
     onSearch: (String) -> Unit,
+    onClearHistory: () -> Unit,
     onOpenChannel: (String) -> Unit,
     results: List<KickChannel>,
+    history: List<String>,
     statusMessage: String?,
     modifier: Modifier = Modifier
 ) {
@@ -65,15 +70,60 @@ fun SearchScreen(
                 onClick = { onSearch(query.value) },
                 enabled = query.value.isNotBlank()
             )
+            if (history.isNotEmpty()) {
+                Spacer(Modifier.height(18.dp))
+                Text("History", color = Gl0rgText)
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    history.take(4).forEach { previous ->
+                        TvButton(
+                            label = previous,
+                            onClick = {
+                                query.value = previous
+                                onSearch(previous)
+                            },
+                            modifier = Modifier.width(160.dp)
+                        )
+                    }
+                    TvButton("Clear", onClick = onClearHistory, modifier = Modifier.width(120.dp))
+                }
+            }
             Spacer(Modifier.height(18.dp))
             StatusText(statusMessage)
             Spacer(Modifier.height(26.dp))
-            ChannelRow(
+            SearchResultList(
                 title = "Results",
                 channels = results,
                 emptyText = "No results yet.",
                 onOpenChannel = onOpenChannel
             )
+        }
+    }
+}
+
+@Composable
+private fun SearchResultList(
+    title: String,
+    channels: List<KickChannel>,
+    emptyText: String,
+    onOpenChannel: (String) -> Unit
+) {
+    Column {
+        Text(text = title, color = Gl0rgText)
+        Spacer(Modifier.height(12.dp))
+        if (channels.isEmpty()) {
+            Text(text = emptyText, color = Gl0rgMuted)
+        } else {
+            channels.take(8).forEach { channel ->
+                TvButton(
+                    label = "${channel.safeDisplayName}  /${channel.slug}${if (channel.stream != null) "  LIVE" else ""}",
+                    onClick = { onOpenChannel(channel.slug) },
+                    modifier = Modifier
+                        .fillMaxWidth(0.78f)
+                        .height(58.dp)
+                )
+                Spacer(Modifier.height(10.dp))
+            }
         }
     }
 }
