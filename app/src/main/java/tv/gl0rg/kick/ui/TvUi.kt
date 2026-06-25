@@ -1,6 +1,7 @@
 package tv.gl0rg.kick.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -71,17 +72,20 @@ fun TvShell(
     onSearch: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
+    var navFocused by remember { mutableStateOf(false) }
+    val navWidth by animateDpAsState(if (navFocused) 250.dp else 92.dp, label = "navWidth")
     Row(
         modifier = modifier
             .fillMaxSize()
             .background(Gl0rgBackground)
-            .padding(32.dp)
+            .padding(24.dp)
     ) {
         Column(
             modifier = Modifier
-                .width(230.dp)
+                .width(navWidth)
                 .fillMaxHeight()
-                .padding(end = 24.dp),
+                .padding(end = if (navFocused) 24.dp else 10.dp)
+                .onFocusChanged { navFocused = it.hasFocus },
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
@@ -89,18 +93,20 @@ fun TvShell(
                     SearchIconButton(onClick = onSearch)
                     Spacer(Modifier.height(24.dp))
                 }
-                Gl0rgWordmark()
+                Gl0rgWordmark(compact = !navFocused)
                 Spacer(Modifier.height(34.dp))
                 navActions.forEach { action ->
-                    SideNavItem(action)
+                    SideNavItem(action, expanded = navFocused)
                     Spacer(Modifier.height(12.dp))
                 }
             }
-            Text(
-                text = "Unofficial Kick viewer",
-                color = Gl0rgMuted,
-                fontSize = 13.sp
-            )
+            if (navFocused) {
+                Text(
+                    text = "Unofficial Kick viewer",
+                    color = Gl0rgMuted,
+                    fontSize = 13.sp
+                )
+            }
         }
 
         Box(
@@ -115,7 +121,7 @@ fun TvShell(
 }
 
 @Composable
-fun SideNavItem(action: TvNavAction, modifier: Modifier = Modifier) {
+fun SideNavItem(action: TvNavAction, expanded: Boolean, modifier: Modifier = Modifier) {
     var focused by remember { mutableStateOf(false) }
     val active = focused || action.selected
     val color by animateColorAsState(
@@ -137,14 +143,23 @@ fun SideNavItem(action: TvNavAction, modifier: Modifier = Modifier) {
                 .background(KickGreen, RoundedCornerShape(3.dp))
         )
         Spacer(Modifier.width(14.dp))
-        Text(
-            text = action.label,
-            color = color,
-            fontSize = if (active) 24.sp else 21.sp,
-            fontWeight = if (active) FontWeight.Black else FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        if (expanded) {
+            Text(
+                text = action.label,
+                color = color,
+                fontSize = if (active) 24.sp else 21.sp,
+                fontWeight = if (active) FontWeight.Black else FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        } else {
+            Text(
+                text = action.label.take(1),
+                color = color,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black
+            )
+        }
     }
 }
 
@@ -185,19 +200,19 @@ fun SearchIconButton(
 }
 
 @Composable
-fun Gl0rgWordmark(modifier: Modifier = Modifier) {
+fun Gl0rgWordmark(modifier: Modifier = Modifier, compact: Boolean = false) {
     Column(modifier = modifier) {
         Text(
-            text = "Gl0rgTV",
+            text = if (compact) "G0" else "Gl0rgTV",
             color = KickGreen,
-            fontSize = 34.sp,
+            fontSize = if (compact) 26.sp else 34.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = 0.sp
         )
         Box(
             Modifier
                 .padding(top = 6.dp)
-                .width(120.dp)
+                .width(if (compact) 44.dp else 120.dp)
                 .height(4.dp)
                 .background(KickGreen)
         )

@@ -21,6 +21,15 @@ data class KickChannel(
         get() = displayName.ifBlank { slug }
 }
 
+data class KickVideo(
+    val id: Long,
+    val title: String,
+    val thumbnailUrl: String?,
+    val views: Int?,
+    val durationMillis: Long?,
+    val playbackUrl: String?
+)
+
 data class KickSearchResults(
     val liveChannels: List<KickChannel>,
     val channels: List<KickChannel>

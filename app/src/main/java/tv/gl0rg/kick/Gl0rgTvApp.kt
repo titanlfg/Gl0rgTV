@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.room.Room
 import tv.gl0rg.kick.kick.KickChannel
 import tv.gl0rg.kick.kick.KickStream
+import tv.gl0rg.kick.kick.KickVideo
 import tv.gl0rg.kick.kick.LocalCookieLoginServer
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -38,7 +39,7 @@ sealed interface AppRoute {
     data object Search : AppRoute
     data object Login : AppRoute
     data object Settings : AppRoute
-    data class Channel(val channel: KickChannel) : AppRoute
+    data class Channel(val channel: KickChannel, val videos: List<KickVideo>) : AppRoute
     data class Player(val route: PlaybackRoute) : AppRoute
 }
 
@@ -132,8 +133,12 @@ fun Gl0rgTvApp() {
             scope.launch {
                 when (val result = kickClient.getChannel(slug)) {
                     is KickResult.Success -> {
+                        val videos = when (val videoResult = kickClient.getChannelVideos(slug)) {
+                            is KickResult.Success -> videoResult.value
+                            is KickResult.Failure -> emptyList()
+                        }
                         statusMessage.value = null
-                        route.value = AppRoute.Channel(result.value)
+                        route.value = AppRoute.Channel(result.value, videos)
                     }
                     is KickResult.Failure -> statusMessage.value = "Could not open $slug (${result.reason})"
                 }
@@ -232,6 +237,7 @@ fun Gl0rgTvApp() {
         )
         is AppRoute.Channel -> ChannelScreen(
             channel = currentRoute.channel,
+            videos = currentRoute.videos,
             onBack = { route.value = AppRoute.Search },
             onWatch = {
                 val stream = currentRoute.channel.stream
@@ -247,6 +253,14 @@ fun Gl0rgTvApp() {
                         )
                     }
                     route.value = AppRoute.Player(StreamResolver.resolve(stream))
+                }
+            },
+            onWatchVideo = { video ->
+                val source = video.playbackUrl
+                if (source == null) {
+                    statusMessage.value = "Video source unavailable"
+                } else {
+                    route.value = AppRoute.Player(PlaybackRoute.Native(source))
                 }
             },
             onFavorite = {

@@ -14,6 +14,7 @@ interface KickClient {
     suspend fun searchChannels(query: String): KickResult<KickSearchResults>
     suspend fun getLiveStreams(): KickResult<List<KickStream>>
     suspend fun getFollowedChannels(): KickResult<List<KickChannel>>
+    suspend fun getChannelVideos(slug: String): KickResult<List<KickVideo>>
 }
 
 class WebKickClient(
@@ -24,7 +25,7 @@ class WebKickClient(
     override suspend fun getChannel(slug: String): KickResult<KickChannel> = withContext(Dispatchers.IO) {
         val apiRequest = Request.Builder()
             .url(baseUrl.newBuilder().addPathSegments("api/v2/channels").addPathSegment(slug).build())
-            .header("User-Agent", USER_AGENT)
+            .kickHeaders(referer = "/$slug")
             .applySessionCookie()
             .build()
 
@@ -41,7 +42,7 @@ class WebKickClient(
 
         val pageRequest = Request.Builder()
             .url(baseUrl.newBuilder().addPathSegment(slug).build())
-            .header("User-Agent", USER_AGENT)
+            .kickHeaders(referer = "/$slug")
             .applySessionCookie()
             .build()
 
@@ -58,23 +59,29 @@ class WebKickClient(
     override suspend fun searchChannels(query: String): KickResult<KickSearchResults> = withContext(Dispatchers.IO) {
         val encoded = URLEncoder.encode(query, StandardCharsets.UTF_8.name())
         val request = Request.Builder()
-            .url(baseUrl.newBuilder().addPathSegment("search").encodedQuery("query=$encoded").build())
-            .header("User-Agent", USER_AGENT)
+            .url(baseUrl.newBuilder().addPathSegments("api/search").encodedQuery("searched_word=$encoded").build())
+            .kickHeaders(referer = "/")
             .applySessionCookie()
             .build()
 
         runCatching {
             httpClient.newCall(request).execute().use { response ->
-                val channels = KickHtmlParsers.parseChannelLinks(response.body?.string().orEmpty())
-                KickResult.Success(KickSearchResults(liveChannels = channels.filter { it.stream != null }, channels = channels))
+                KickResult.Success(KickJsonParsers.parseSearchResults(response.body?.string().orEmpty()))
             }
         }.getOrElse { KickResult.Failure("search_request_failed", it) }
     }
 
     override suspend fun getLiveStreams(): KickResult<List<KickStream>> = withContext(Dispatchers.IO) {
         val request = Request.Builder()
-            .url(baseUrl)
-            .header("User-Agent", USER_AGENT)
+            .url(
+                baseUrl.newBuilder()
+                    .addPathSegments("stream/livestreams/en")
+                    .addQueryParameter("page", "1")
+                    .addQueryParameter("limit", "40")
+                    .addQueryParameter("sort", "viewer_count")
+                    .build()
+            )
+            .kickHeaders(referer = "/")
             .applySessionCookie()
             .build()
 
@@ -82,15 +89,7 @@ class WebKickClient(
             val body = httpClient.newCall(request).execute().use { response ->
                 response.body?.string().orEmpty()
             }
-            val streams = KickHtmlParsers.parseChannelLinks(body)
-                .take(MAX_LIVE_STREAM_CANDIDATES)
-                .mapNotNull { channel ->
-                    when (val result = getChannel(channel.slug)) {
-                        is KickResult.Success -> result.value.stream
-                        is KickResult.Failure -> null
-                    }
-                }
-            KickResult.Success(streams)
+            KickResult.Success(KickJsonParsers.parseLiveStreams(body).take(MAX_LIVE_STREAM_CANDIDATES))
         }.getOrElse { KickResult.Failure("live_streams_request_failed", it) }
     }
 
@@ -99,7 +98,7 @@ class WebKickClient(
 
         val request = Request.Builder()
             .url(baseUrl.newBuilder().addPathSegment("following").build())
-            .header("User-Agent", USER_AGENT)
+            .kickHeaders(referer = "/following")
             .applySessionCookie()
             .build()
 
@@ -111,6 +110,29 @@ class WebKickClient(
         }.getOrElse { KickResult.Failure("followed_channels_request_failed", it) }
     }
 
+    override suspend fun getChannelVideos(slug: String): KickResult<List<KickVideo>> = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(baseUrl.newBuilder().addPathSegments("api/v2/channels").addPathSegment(slug).addPathSegment("videos").build())
+            .kickHeaders(referer = "/$slug/videos")
+            .applySessionCookie()
+            .build()
+
+        runCatching {
+            httpClient.newCall(request).execute().use { response ->
+                KickResult.Success(KickJsonParsers.parseChannelVideos(response.body?.string().orEmpty()))
+            }
+        }.getOrElse { KickResult.Failure("channel_videos_request_failed", it) }
+    }
+
+    private fun Request.Builder.kickHeaders(referer: String): Request.Builder {
+        header("User-Agent", USER_AGENT)
+        header("Accept", "application/json, text/plain, */*")
+        header("Origin", baseUrl.toString().trimEnd('/'))
+        header("Referer", baseUrl.newBuilder().encodedPath(referer).build().toString())
+        header("Accept-Language", "en-US,en;q=0.9")
+        return this
+    }
+
     private fun Request.Builder.applySessionCookie(): Request.Builder {
         val cookieHeader = sessionProvider.cookieHeader()
         if (cookieHeader.isNotBlank()) {
@@ -120,7 +142,7 @@ class WebKickClient(
     }
 
     private companion object {
-        const val USER_AGENT = "Mozilla/5.0 (Android TV; Gl0rgTV) AppleWebKit/537.36"
+        const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
         const val MAX_LIVE_STREAM_CANDIDATES = 24
     }
 }

@@ -25,25 +25,36 @@ class WebKickClientTest {
     }
 
     @Test
-    fun liveStreamsCapsResolvedChannelRequests() = runTest {
+    fun liveStreamsUsesJsonEndpoint() = runTest {
         MockWebServer().use { server ->
             server.enqueue(
                 MockResponse().setBody(
-                    (1..30).joinToString(prefix = "<html><body>", postfix = "</body></html>") {
-                        """<a href="/channel$it">Channel $it</a>"""
+                    """
+                    {
+                      "data": [
+                        {
+                          "session_title": "Live show",
+                          "viewer_count": 42,
+                          "thumbnail": {"src": "https://img.example/thumb.webp"},
+                          "channel": {"slug": "gl0rg", "playback_url": "https://video.example/live.m3u8"},
+                          "categories": [{"name": "Just Chatting"}]
+                        }
+                      ]
                     }
+                    """.trimIndent()
                 )
             )
-            repeat(48) {
-                server.enqueue(MockResponse().setBody("{}"))
-            }
             server.start()
             val client = WebKickClient(OkHttpClient(), FakeKickSessionProvider(), server.url("/"))
 
             val result = client.getLiveStreams()
 
             assertTrue(result is KickResult.Success)
-            assertEquals(49, server.requestCount)
+            val streams = (result as KickResult.Success).value
+            assertEquals("/stream/livestreams/en?page=1&limit=40&sort=viewer_count", server.takeRequest().path)
+            assertEquals("gl0rg", streams.single().slug)
+            assertEquals("Live show", streams.single().title)
+            assertEquals("https://video.example/live.m3u8", streams.single().hlsUrl)
         }
     }
 }

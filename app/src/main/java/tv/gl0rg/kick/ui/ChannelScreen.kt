@@ -12,12 +12,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import tv.gl0rg.kick.kick.KickChannel
+import tv.gl0rg.kick.kick.KickVideo
 
 @Composable
 fun ChannelScreen(
     channel: KickChannel,
+    videos: List<KickVideo>,
     onBack: () -> Unit,
     onWatch: () -> Unit,
+    onWatchVideo: (KickVideo) -> Unit,
     onFavorite: () -> Unit,
     statusMessage: String?,
     modifier: Modifier = Modifier
@@ -29,7 +32,7 @@ fun ChannelScreen(
             TvNavAction("Channel", selected = true) {}
         )
     ) {
-        Column {
+        S0undLikeCanvas {
             ScreenTitle(
                 title = channel.safeDisplayName,
                 subtitle = channel.stream?.category ?: "Kick channel"
@@ -49,14 +52,50 @@ fun ChannelScreen(
                 TvButton("Watch", onClick = onWatch, enabled = channel.stream != null)
                 TvButton("Favorite", onClick = onFavorite)
             }
-            Spacer(Modifier.height(18.dp))
             StatusText(statusMessage)
-            Spacer(Modifier.height(24.dp))
+            VideoRow(
+                title = "Recent Videos (${videos.size})",
+                videos = videos,
+                emptyText = "No public videos found for this channel.",
+                onOpenVideo = onWatchVideo
+            )
             Text(
                 text = "Slug: ${channel.slug}",
                 color = Gl0rgMuted,
                 fontSize = 14.sp
             )
+        }
+    }
+}
+
+@Composable
+fun VideoRow(
+    title: String,
+    videos: List<KickVideo>,
+    emptyText: String,
+    onOpenVideo: (KickVideo) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = title,
+            color = Gl0rgText,
+            fontSize = 20.sp
+        )
+        Spacer(Modifier.height(12.dp))
+        if (videos.isEmpty()) {
+            Text(text = emptyText, color = Gl0rgMuted, fontSize = 14.sp)
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                videos.take(5).forEach { video ->
+                    PreviewCard(
+                        title = video.title,
+                        subtitle = "${video.views ?: 0} views",
+                        imageUrl = video.thumbnailUrl,
+                        onClick = { onOpenVideo(video) }
+                    )
+                }
+            }
         }
     }
 }
