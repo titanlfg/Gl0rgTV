@@ -195,6 +195,9 @@ fun Gl0rgTvApp() {
             onSearch = { route.value = AppRoute.Search },
             onSettings = { route.value = AppRoute.Settings },
             onOpenChannel = openChannel,
+            onOpenStream = { stream ->
+                route.value = AppRoute.Player(StreamResolver.resolve(stream))
+            },
             onBrowseCategory = { name, slug ->
                 loadCategory(name, slug)
             },

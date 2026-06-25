@@ -22,6 +22,7 @@ fun HomeScreen(
     onSearch: () -> Unit,
     onSettings: () -> Unit,
     onOpenChannel: (String) -> Unit,
+    onOpenStream: (KickStream) -> Unit,
     onBrowseCategory: (String, String) -> Unit,
     favorites: List<KickChannel>,
     liveStreams: List<KickStream>,
@@ -56,13 +57,15 @@ fun HomeScreen(
                 title = "Favorites",
                 channels = favorites,
                 emptyText = "Favorite channels from a channel page.",
-                onOpenChannel = onOpenChannel
+                onOpenChannel = onOpenChannel,
+                onOpenStream = onOpenStream
             )
             StreamRow(
                 title = "Top Streamers",
                 streams = liveStreams,
                 emptyText = "Live streamers unavailable right now.",
-                onOpenChannel = onOpenChannel
+                onOpenChannel = onOpenChannel,
+                onOpenStream = onOpenStream
             )
             Column {
                 ScreenTitle("Categories")
@@ -93,7 +96,8 @@ fun HomeScreen(
                 title = "$selectedCategory Live",
                 streams = categoryStreams,
                 emptyText = "No live streamers found in this category.",
-                onOpenChannel = onOpenChannel
+                onOpenChannel = onOpenChannel,
+                onOpenStream = onOpenStream
             )
             Column {
                 ScreenTitle("Tools")

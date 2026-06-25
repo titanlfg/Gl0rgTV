@@ -185,6 +185,11 @@ fun TvShell(
                     fontSize = 13.sp
                 )
             }
+        } else {
+            MenuEdgeHandle(
+                onOpen = { navOpen = true },
+                modifier = Modifier.fillMaxHeight()
+            )
         }
 
         Box(
@@ -220,6 +225,33 @@ fun TvShell(
             }
         }
         }
+    }
+}
+
+@Composable
+private fun MenuEdgeHandle(
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var focused by remember { mutableStateOf(false) }
+    Box(
+        modifier = modifier
+            .width(18.dp)
+            .padding(end = 8.dp)
+            .onFocusChanged {
+                focused = it.isFocused
+                if (it.isFocused) onOpen()
+            }
+            .focusable()
+            .clickable(onClick = onOpen)
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .width(if (focused) 8.dp else 5.dp)
+                .height(96.dp)
+                .background(KickGreen.copy(alpha = if (focused) 1f else 0.7f), RoundedCornerShape(8.dp))
+        )
     }
 }
 
@@ -445,6 +477,7 @@ fun ChannelRow(
     channels: List<KickChannel>,
     emptyText: String,
     onOpenChannel: (String) -> Unit,
+    onOpenStream: (KickStream) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -470,7 +503,10 @@ fun ChannelRow(
                         } ?: channel.slug,
                         imageUrl = channel.stream?.thumbnailUrl ?: channel.avatarUrl,
                         previewHlsUrl = channel.stream?.hlsUrl,
-                        onClick = { onOpenChannel(channel.slug) }
+                        onClick = {
+                            val stream = channel.stream
+                            if (stream != null) onOpenStream(stream) else onOpenChannel(channel.slug)
+                        }
                     )
                 }
             }
@@ -484,6 +520,7 @@ fun StreamRow(
     streams: List<KickStream>,
     emptyText: String,
     onOpenChannel: (String) -> Unit,
+    onOpenStream: (KickStream) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -507,7 +544,9 @@ fun StreamRow(
                         subtitle = stream.category ?: "${stream.viewerCount ?: 0} viewers",
                         imageUrl = stream.thumbnailUrl,
                         previewHlsUrl = stream.hlsUrl,
-                        onClick = { onOpenChannel(stream.slug) }
+                        onClick = {
+                            if (!stream.hlsUrl.isNullOrBlank()) onOpenStream(stream) else onOpenChannel(stream.slug)
+                        }
                     )
                 }
             }
@@ -692,7 +731,7 @@ private fun FocusedLivePreview(
         val mediaSource = HlsMediaSource.Factory(httpDataSourceFactory)
             .createMediaSource(MediaItem.fromUri(hlsUrl))
         ExoPlayer.Builder(context).build().apply {
-            volume = 0f
+            volume = 1f
             repeatMode = Player.REPEAT_MODE_OFF
             setMediaSource(mediaSource)
             prepare()
