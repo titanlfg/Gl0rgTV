@@ -46,14 +46,14 @@ import tv.gl0rg.kick.ui.TvButton
 fun PlayerScreen(route: PlaybackRoute, modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize()) {
         when (route) {
-            is PlaybackRoute.Native -> NativePlayer(route.hlsUrl)
+            is PlaybackRoute.Native -> NativePlayer(route.hlsUrl, isLive = route.isLive)
             is PlaybackRoute.WebViewFallback -> WebViewPlayer(route.url)
         }
     }
 }
 
 @Composable
-private fun NativePlayer(hlsUrl: String) {
+private fun NativePlayer(hlsUrl: String, isLive: Boolean) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val wasPlaying = remember { mutableStateOf(false) }
@@ -154,22 +154,24 @@ private fun NativePlayer(hlsUrl: String) {
                 playerView.player = null
             }
         )
-        PlayerControlOverlay(
-            quality = quality.value,
-            onQuality = {
-                quality.value = it
-                trackSelector.parameters = trackSelector.buildUponParameters()
-                    .setMaxVideoSize(it.maxWidth, it.maxHeight)
-                    .build()
-            },
-            onLive = {
-                player.seekToDefaultPosition()
-                player.play()
-            },
-            modifier = Modifier
-                .align(androidx.compose.ui.Alignment.BottomCenter)
-                .padding(bottom = 28.dp)
-        )
+        if (isLive) {
+            PlayerControlOverlay(
+                quality = quality.value,
+                onQuality = {
+                    quality.value = it
+                    trackSelector.parameters = trackSelector.buildUponParameters()
+                        .setMaxVideoSize(it.maxWidth, it.maxHeight)
+                        .build()
+                },
+                onLive = {
+                    player.seekToDefaultPosition()
+                    player.play()
+                },
+                modifier = Modifier
+                    .align(androidx.compose.ui.Alignment.BottomCenter)
+                    .padding(bottom = 28.dp)
+            )
+        }
     }
 }
 

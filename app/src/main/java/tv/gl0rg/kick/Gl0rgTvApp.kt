@@ -284,7 +284,7 @@ fun Gl0rgTvApp() {
                 if (source == null) {
                     statusMessage.value = "Video source unavailable"
                 } else {
-                    route.value = AppRoute.Player(PlaybackRoute.Native(source))
+                    route.value = AppRoute.Player(PlaybackRoute.Native(source, isLive = false))
                 }
             },
             onFavorite = {

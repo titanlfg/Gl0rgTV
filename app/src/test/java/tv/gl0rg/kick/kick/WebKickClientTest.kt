@@ -51,7 +51,7 @@ class WebKickClientTest {
 
             assertTrue(result is KickResult.Success)
             val streams = (result as KickResult.Success).value
-            assertEquals("/stream/livestreams/en?page=1&limit=40", server.takeRequest().path)
+            assertEquals("/stream/livestreams/en?page=1&limit=40&sort=desc", server.takeRequest().path)
             assertEquals("gl0rg", streams.single().slug)
             assertEquals("Live show", streams.single().title)
             assertEquals("https://video.example/live.m3u8", streams.single().hlsUrl)
@@ -83,7 +83,7 @@ class WebKickClientTest {
             val result = client.getCategoryStreams("minecraft")
 
             assertTrue(result is KickResult.Success)
-            assertEquals("/stream/livestreams/en?subcategory=minecraft&page=1&limit=40", server.takeRequest().path)
+            assertEquals("/stream/livestreams/en?subcategory=minecraft&page=1&limit=40&sort=desc", server.takeRequest().path)
             assertEquals("catstream", (result as KickResult.Success).value.single().slug)
         }
     }

@@ -65,12 +65,6 @@ fun HomeScreen(
                     body = "Public Kick channels still browse without login. Search from the top-left icon."
                 )
             }
-            StreamRow(
-                title = "Followed",
-                streams = liveStreams.take(1),
-                emptyText = "Login from Settings to refresh your Kick session later.",
-                onOpenChannel = onOpenChannel
-            )
             ChannelRow(
                 title = "Followed Channels (${favorites.size})",
                 channels = favorites,
