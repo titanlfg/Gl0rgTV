@@ -29,7 +29,7 @@ fun LoginScreen(
         Column {
             ScreenTitle(
                 title = "Link Kick Session",
-                subtitle = "Scan the QR code with a phone on the same Wi-Fi."
+                subtitle = "Scan the QR code or open the address on a computer on the same Wi-Fi."
             )
             Spacer(Modifier.height(28.dp))
             Row {
@@ -42,15 +42,15 @@ fun LoginScreen(
                     )
                     Spacer(Modifier.height(16.dp))
                     InfoTile(
-                        title = "Log in on phone",
-                        body = "The page opens real Kick. After login, return to the helper page and paste the Cookie header."
+                        title = "Log in to Kick",
+                        body = "The helper opens real Kick. After login, copy the Kick Cookie header and return to the helper page."
                     )
                 }
             }
             Spacer(Modifier.height(20.dp))
             InfoTile(
-                title = "Submit token",
-                body = "Paste the copied Kick Cookie header into the token box and submit. Gl0rgTV closes this screen after a valid session."
+                title = "Submit Cookie header",
+                body = "Computer is easiest: F12, Network, refresh Kick, select a kick.com request, copy Request Headers > Cookie, paste, submit."
             )
             Spacer(Modifier.height(24.dp))
             TvButton("New Login Link", onClick = onRestartServer)

@@ -41,7 +41,7 @@ fun SettingsScreen(
             ) {
                 InfoTile("Player mode", "Native HLS first, Kick WebView fallback.", Modifier.weight(1f))
                 InfoTile("Quality", "Auto.", Modifier.weight(1f))
-                InfoTile("Kick session", if (isLoggedIn) "Logged in. Use Login / Refresh if streams need a new session." else "Not logged in. Login / Refresh opens the QR helper.", Modifier.weight(1f))
+                InfoTile("Kick session", if (isLoggedIn) "Logged in. Use Login / Refresh if Kick asks for a new session." else "Not logged in. Login / Refresh opens QR login helper.", Modifier.weight(1f))
             }
             Spacer(Modifier.height(20.dp))
             Row(

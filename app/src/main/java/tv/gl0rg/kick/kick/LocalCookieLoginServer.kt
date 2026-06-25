@@ -95,11 +95,14 @@ class LocalCookieLoginServer(
         <h1>Follow these steps to login:</h1>
         <ol>
           <li><b>Read all steps first.</b></li>
+          <li>Open this page on a phone, tablet, or computer on the same Wi-Fi as your TV.</li>
           <li>Tap the link below. It opens the real Kick site. Log in there as usual.</li>
         </ol>
         <a class="login" href="https://kick.com/">Login with Kick</a>
-        <ol start="3">
-          <li>After Kick is logged in, copy the Kick request <b>Cookie</b> header. On desktop: open DevTools, Network, select a kick.com request, Request Headers, then copy Cookie.</li>
+        <ol start="4">
+          <li>After Kick is logged in, copy the Kick request <b>Cookie</b> header.</li>
+          <li>Chrome/Edge on computer: press F12, open Network, refresh kick.com, click any kick.com request, open Request Headers, copy the full Cookie value.</li>
+          <li>Phone/tablet: use a browser that can show request headers. If yours cannot, use a computer instead.</li>
           <li>Come back to this page and paste the whole Cookie value into the box below.</li>
           <li>Press Submit. On success, Gl0rgTV closes the login screen.</li>
         </ol>
