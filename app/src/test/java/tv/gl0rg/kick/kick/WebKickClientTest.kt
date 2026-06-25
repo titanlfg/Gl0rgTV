@@ -59,6 +59,39 @@ class WebKickClientTest {
     }
 
     @Test
+    fun liveStreamsSortByViewerCountDescending() = runTest {
+        MockWebServer().use { server ->
+            server.enqueue(
+                MockResponse().setBody(
+                    """
+                    {
+                      "data": [
+                        {
+                          "session_title": "Small",
+                          "viewer_count": 5,
+                          "channel": {"slug": "small"}
+                        },
+                        {
+                          "session_title": "Big",
+                          "viewer_count": 500,
+                          "channel": {"slug": "big"}
+                        }
+                      ]
+                    }
+                    """.trimIndent()
+                )
+            )
+            server.start()
+            val client = WebKickClient(OkHttpClient(), FakeKickSessionProvider(), server.url("/"))
+
+            val result = client.getLiveStreams()
+
+            assertTrue(result is KickResult.Success)
+            assertEquals(listOf("big", "small"), (result as KickResult.Success).value.map { it.slug })
+        }
+    }
+
+    @Test
     fun categoryStreamsUseSubcategoryFilter() = runTest {
         MockWebServer().use { server ->
             server.enqueue(
@@ -85,6 +118,41 @@ class WebKickClientTest {
             assertTrue(result is KickResult.Success)
             assertEquals("/stream/livestreams/en?subcategory=minecraft&page=1&limit=40&sort=desc", server.takeRequest().path)
             assertEquals("catstream", (result as KickResult.Success).value.single().slug)
+        }
+    }
+
+    @Test
+    fun categoryStreamsFilterMixedEndpointResults() = runTest {
+        MockWebServer().use { server ->
+            server.enqueue(
+                MockResponse().setBody(
+                    """
+                    {
+                      "data": [
+                        {
+                          "session_title": "Wrong category",
+                          "viewer_count": 9999,
+                          "channel": {"slug": "wrong"},
+                          "categories": [{"name": "Sports"}]
+                        },
+                        {
+                          "session_title": "Right category",
+                          "viewer_count": 10,
+                          "channel": {"slug": "right"},
+                          "categories": [{"name": "Just Chatting"}]
+                        }
+                      ]
+                    }
+                    """.trimIndent()
+                )
+            )
+            server.start()
+            val client = WebKickClient(OkHttpClient(), FakeKickSessionProvider(), server.url("/"))
+
+            val result = client.getCategoryStreams("just-chatting")
+
+            assertTrue(result is KickResult.Success)
+            assertEquals(listOf("right"), (result as KickResult.Success).value.map { it.slug })
         }
     }
 }

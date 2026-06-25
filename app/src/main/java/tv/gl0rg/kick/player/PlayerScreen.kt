@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -36,6 +38,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.PlayerView
+import kotlinx.coroutines.delay
 import tv.gl0rg.kick.ui.Gl0rgBackground
 import tv.gl0rg.kick.ui.Gl0rgMuted
 import tv.gl0rg.kick.ui.Gl0rgText
@@ -59,6 +62,7 @@ private fun NativePlayer(hlsUrl: String, isLive: Boolean) {
     val wasPlaying = remember { mutableStateOf(false) }
     val playbackError = remember(hlsUrl) { mutableStateOf<String?>(null) }
     val quality = remember(hlsUrl) { mutableStateOf(PlayerQuality.Auto) }
+    val controlsVisible = remember(hlsUrl) { mutableStateOf(false) }
     val trackSelector = remember(hlsUrl) { DefaultTrackSelector(context) }
     val playerResult = remember(hlsUrl) {
         runCatching {
@@ -121,20 +125,35 @@ private fun NativePlayer(hlsUrl: String, isLive: Boolean) {
         onDispose { player.release() }
     }
 
+    LaunchedEffect(controlsVisible.value, quality.value) {
+        if (controlsVisible.value) {
+            delay(7000)
+            controlsVisible.value = false
+        }
+    }
+
     Box(
         Modifier
             .fillMaxSize()
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (event.key) {
+                    Key.DirectionCenter, Key.Enter, Key.Menu, Key.DirectionUp -> {
+                        controlsVisible.value = true
+                        true
+                    }
                     Key.MediaPlayPause, Key.Spacebar -> {
                         if (player.isPlaying) player.pause() else player.play()
                         true
                     }
                     Key.MediaFastForward -> {
-                        player.seekToDefaultPosition()
-                        player.play()
-                        true
+                        if (isLive) {
+                            player.seekToDefaultPosition()
+                            player.play()
+                            true
+                        } else {
+                            false
+                        }
                     }
                     else -> false
                 }
@@ -154,8 +173,9 @@ private fun NativePlayer(hlsUrl: String, isLive: Boolean) {
                 playerView.player = null
             }
         )
-        if (isLive) {
+        if (controlsVisible.value) {
             PlayerControlOverlay(
+                isLive = isLive,
                 quality = quality.value,
                 onQuality = {
                     quality.value = it
@@ -167,8 +187,9 @@ private fun NativePlayer(hlsUrl: String, isLive: Boolean) {
                     player.seekToDefaultPosition()
                     player.play()
                 },
+                onHide = { controlsVisible.value = false },
                 modifier = Modifier
-                    .align(androidx.compose.ui.Alignment.BottomCenter)
+                    .align(Alignment.BottomCenter)
                     .padding(bottom = 28.dp)
             )
         }
@@ -177,24 +198,32 @@ private fun NativePlayer(hlsUrl: String, isLive: Boolean) {
 
 @Composable
 private fun PlayerControlOverlay(
+    isLive: Boolean,
     quality: PlayerQuality,
     onQuality: (PlayerQuality) -> Unit,
     onLive: () -> Unit,
+    onHide: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    Column(
         modifier = modifier
             .background(Gl0rgBackground.copy(alpha = 0.78f))
             .padding(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        TvButton("Live", onClick = onLive)
-        PlayerQuality.entries.forEach { item ->
-            TvButton(
-                label = item.label,
-                selected = quality == item,
-                onClick = { onQuality(item) }
-            )
+        Text("Playback", color = Gl0rgText, fontSize = 16.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (isLive) {
+                TvButton("Live", onClick = onLive)
+            }
+            PlayerQuality.entries.forEach { item ->
+                TvButton(
+                    label = item.label,
+                    selected = quality == item,
+                    onClick = { onQuality(item) }
+                )
+            }
+            TvButton("Hide", onClick = onHide)
         }
     }
 }

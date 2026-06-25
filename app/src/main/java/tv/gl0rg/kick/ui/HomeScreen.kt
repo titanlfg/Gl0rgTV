@@ -49,24 +49,11 @@ fun HomeScreen(
     ) {
         S0undLikeCanvas(scrollState = scrollState) {
             ScreenTitle(
-                title = "Followed (${favorites.size})",
-                subtitle = "Search is the top-left icon. Settings contains login."
-            )
-            val featured = liveStreams.firstOrNull()
-            if (featured != null) {
-                FeaturedStreamCard(
-                    stream = featured,
-                    onClick = { onOpenChannel(featured.slug) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            } else {
-                InfoTile(
-                    title = "No live preview",
-                    body = "Public Kick channels still browse without login. Search from the top-left icon."
-                )
-            }
-            ChannelRow(
                 title = "Followed Channels (${favorites.size})",
+                subtitle = "Favorites only. No random live streams are injected here."
+            )
+            ChannelRow(
+                title = "Favorites",
                 channels = favorites,
                 emptyText = "Favorite channels from a channel page.",
                 onOpenChannel = onOpenChannel

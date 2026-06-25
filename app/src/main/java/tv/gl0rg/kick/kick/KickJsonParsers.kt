@@ -27,7 +27,7 @@ object KickJsonParsers {
                 title = it.string("session_title") ?: it.string("stream_title") ?: "Untitled stream",
                 category = it.arrayObject("categories", 0)?.string("name"),
                 thumbnailUrl = it.objectAt("thumbnail")?.string("url") ?: it.string("thumbnail"),
-                viewerCount = it.int("viewer_count"),
+                viewerCount = it.viewerCount(),
                 isMature = it.boolean("is_mature") ?: false,
                 hlsUrl = playbackUrl
             )
@@ -112,15 +112,32 @@ object KickJsonParsers {
     private fun JsonObject.toLiveStream(): KickStream? {
         val channel = objectAt("channel")
         val slug = channel?.string("slug") ?: string("slug") ?: return null
+        val livestream = objectAt("livestream")
         val category = arrayObject("categories", 0)?.string("name")
+            ?: livestream?.arrayObject("categories", 0)?.string("name")
         return KickStream(
             slug = slug,
-            title = string("session_title") ?: string("stream_title") ?: "Untitled stream",
+            title = string("session_title")
+                ?: string("stream_title")
+                ?: livestream?.string("session_title")
+                ?: livestream?.string("stream_title")
+                ?: "Untitled stream",
             category = category,
-            thumbnailUrl = objectAt("thumbnail")?.string("src") ?: objectAt("thumbnail")?.string("url") ?: string("thumbnail"),
-            viewerCount = int("viewer_count") ?: int("viewers"),
-            isMature = boolean("is_mature") ?: boolean("has_mature_content") ?: false,
-            hlsUrl = channel?.string("playback_url") ?: string("playback_url") ?: string("source")
+            thumbnailUrl = objectAt("thumbnail")?.string("src")
+                ?: objectAt("thumbnail")?.string("url")
+                ?: livestream?.objectAt("thumbnail")?.string("src")
+                ?: livestream?.objectAt("thumbnail")?.string("url")
+                ?: string("thumbnail")
+                ?: livestream?.string("thumbnail"),
+            viewerCount = viewerCount() ?: livestream?.viewerCount(),
+            isMature = boolean("is_mature")
+                ?: boolean("has_mature_content")
+                ?: livestream?.boolean("is_mature")
+                ?: false,
+            hlsUrl = channel?.string("playback_url")
+                ?: string("playback_url")
+                ?: livestream?.string("playback_url")
+                ?: string("source")
         )
     }
 
@@ -139,7 +156,16 @@ object KickJsonParsers {
         primitive(key)?.contentOrNull?.takeIf { it.isNotBlank() }
 
     private fun JsonObject.int(key: String): Int? =
-        primitive(key)?.intOrNull
+        primitive(key)?.intOrNull ?: primitive(key)?.contentOrNull?.filter { it.isDigit() }?.toIntOrNull()
+
+    private fun JsonObject.viewerCount(): Int? =
+        int("viewer_count")
+            ?: int("viewerCount")
+            ?: int("viewers")
+            ?: int("viewers_count")
+            ?: int("viewer_count_live")
+            ?: int("live_viewers")
+            ?: int("current_viewers")
 
     private fun JsonObject.long(key: String): Long? =
         primitive(key)?.longOrNull

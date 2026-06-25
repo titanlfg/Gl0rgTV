@@ -35,4 +35,38 @@ class KickJsonParsersTest {
         assertEquals(1234, channel.stream?.viewerCount)
         assertEquals("Just Chatting", channel.stream?.category)
     }
+
+    @Test
+    fun parsesNestedLiveStreamViewerCountShapes() {
+        val json = """
+            {
+              "data": [
+                {
+                  "channel": {"slug": "lower", "playback_url": "https://video.example/lower.m3u8"},
+                  "livestream": {
+                    "session_title": "Nested low",
+                    "viewerCount": "900",
+                    "categories": [{"name": "Just Chatting"}],
+                    "thumbnail": {"url": "https://img.example/low.webp"}
+                  }
+                },
+                {
+                  "channel": {"slug": "higher", "playback_url": "https://video.example/higher.m3u8"},
+                  "livestream": {
+                    "session_title": "Nested high",
+                    "viewers_count": 1200,
+                    "categories": [{"name": "Just Chatting"}]
+                  }
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val streams = KickJsonParsers.parseLiveStreams(json)
+
+        assertEquals(2, streams.size)
+        assertEquals(900, streams.first { it.slug == "lower" }.viewerCount)
+        assertEquals(1200, streams.first { it.slug == "higher" }.viewerCount)
+        assertEquals("Just Chatting", streams.first().category)
+    }
 }

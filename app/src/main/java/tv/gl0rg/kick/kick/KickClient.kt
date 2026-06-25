@@ -90,7 +90,7 @@ class WebKickClient(
             val body = httpClient.newCall(request).execute().use { response ->
                 response.body?.string().orEmpty()
             }
-            KickResult.Success(KickJsonParsers.parseLiveStreams(body).sortedByDescending { it.viewerCount ?: 0 }.take(MAX_LIVE_STREAM_CANDIDATES))
+            KickResult.Success(KickJsonParsers.parseLiveStreams(body).topViewed())
         }.getOrElse { KickResult.Failure("live_streams_request_failed", it) }
     }
 
@@ -113,7 +113,9 @@ class WebKickClient(
             val body = httpClient.newCall(request).execute().use { response ->
                 response.body?.string().orEmpty()
             }
-            KickResult.Success(KickJsonParsers.parseLiveStreams(body).sortedByDescending { it.viewerCount ?: 0 }.take(MAX_LIVE_STREAM_CANDIDATES))
+            val parsed = KickJsonParsers.parseLiveStreams(body)
+            val categoryMatches = parsed.filter { it.category.matchesCategorySlug(categorySlug) }
+            KickResult.Success((categoryMatches.ifEmpty { parsed }).topViewed())
         }.getOrElse { KickResult.Failure("category_streams_request_failed", it) }
     }
 
@@ -170,3 +172,20 @@ class WebKickClient(
         const val MAX_LIVE_STREAM_CANDIDATES = 24
     }
 }
+
+private fun List<KickStream>.topViewed(): List<KickStream> =
+    sortedWith(
+        compareByDescending<KickStream> { it.viewerCount ?: -1 }
+            .thenBy(String.CASE_INSENSITIVE_ORDER) { it.slug }
+    ).take(24)
+
+private fun String?.matchesCategorySlug(categorySlug: String): Boolean {
+    val normalizedCategory = this?.toSlugLike() ?: return false
+    return normalizedCategory == categorySlug.toSlugLike()
+}
+
+private fun String.toSlugLike(): String =
+    lowercase()
+        .replace("&", "and")
+        .replace(Regex("[^a-z0-9]+"), "-")
+        .trim('-')

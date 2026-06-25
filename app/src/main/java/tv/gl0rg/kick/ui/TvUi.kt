@@ -33,6 +33,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,11 +42,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -56,9 +64,9 @@ import tv.gl0rg.kick.kick.KickChannel
 import tv.gl0rg.kick.kick.KickStream
 
 internal val KickGreen = Color(0xFF53FC18)
-internal val Gl0rgBackground = Color(0xFF090B0A)
-internal val Gl0rgPanel = Color(0xFF111713)
-internal val Gl0rgPanelSoft = Color(0xFF1A221C)
+internal val Gl0rgBackground = Color(0xFF060807)
+internal val Gl0rgPanel = Color(0xFF101611)
+internal val Gl0rgPanelSoft = Color(0xFF151B16)
 internal val Gl0rgText = Color(0xFFF3F7F1)
 internal val Gl0rgMuted = Color(0xFFAAB4A8)
 
@@ -75,36 +83,75 @@ fun TvShell(
     onSearch: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
-    var navFocused by remember { mutableStateOf(false) }
-    val navWidth by animateDpAsState(if (navFocused) 250.dp else 1.dp, label = "navWidth")
+    var navOpen by remember { mutableStateOf(false) }
+    val navFocusRequester = remember { FocusRequester() }
+    val contentFocusRequester = remember { FocusRequester() }
+    val navWidth by animateDpAsState(if (navOpen) 250.dp else 0.dp, label = "navWidth")
+
+    LaunchedEffect(navOpen) {
+        runCatching {
+            if (navOpen) navFocusRequester.requestFocus() else contentFocusRequester.requestFocus()
+        }
+    }
+
     Row(
         modifier = modifier
             .fillMaxSize()
             .background(Gl0rgBackground)
             .padding(24.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .width(navWidth)
-                .fillMaxHeight()
-                .alpha(if (navFocused) 1f else 0f)
-                .padding(end = if (navFocused) 24.dp else 0.dp)
-                .onFocusChanged { navFocused = it.hasFocus },
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                if (onSearch != null) {
-                    SearchIconButton(onClick = onSearch)
-                    Spacer(Modifier.height(24.dp))
-                }
-                Gl0rgWordmark(compact = !navFocused)
-                Spacer(Modifier.height(34.dp))
-                navActions.forEach { action ->
-                    SideNavItem(action, expanded = navFocused)
-                    Spacer(Modifier.height(12.dp))
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (event.key) {
+                    Key.DirectionLeft -> {
+                        if (!navOpen) {
+                            navOpen = true
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    Key.DirectionRight -> {
+                        if (navOpen) {
+                            navOpen = false
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    else -> false
                 }
             }
-            if (navFocused) {
+    ) {
+        if (navOpen) {
+            Column(
+                modifier = Modifier
+                    .width(navWidth)
+                    .fillMaxHeight()
+                    .alpha(1f)
+                    .padding(end = 24.dp)
+                    .onFocusChanged { if (!it.hasFocus) navOpen = false },
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    if (onSearch != null) {
+                        SearchIconButton(
+                            onClick = onSearch,
+                            modifier = Modifier.focusRequester(navFocusRequester)
+                        )
+                        Spacer(Modifier.height(24.dp))
+                    }
+                    Gl0rgWordmark(compact = false)
+                    Spacer(Modifier.height(34.dp))
+                    navActions.forEachIndexed { index, action ->
+                        val itemModifier = if (onSearch == null && index == 0) {
+                            Modifier.focusRequester(navFocusRequester)
+                        } else {
+                            Modifier
+                        }
+                        SideNavItem(action, expanded = true, modifier = itemModifier)
+                        Spacer(Modifier.height(12.dp))
+                    }
+                }
                 Text(
                     text = "Unofficial Kick viewer",
                     color = Gl0rgMuted,
@@ -117,9 +164,35 @@ fun TvShell(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .padding(start = if (navFocused) 18.dp else 0.dp)
+                .padding(start = if (navOpen) 18.dp else 0.dp)
+                .focusRequester(contentFocusRequester)
+                .focusable()
         ) {
-            content()
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = if (!navOpen && onSearch != null) 96.dp else 0.dp)
+            ) {
+                content()
+            }
+            if (!navOpen && onSearch != null) {
+                SearchIconButton(
+                    onClick = onSearch,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(top = 4.dp)
+                )
+            }
+            if (!navOpen) {
+                Text(
+                    text = "Press Left for menu",
+                    color = Gl0rgMuted.copy(alpha = 0.55f),
+                    fontSize = 13.sp,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(bottom = 4.dp)
+                )
+            }
         }
     }
 }
@@ -235,7 +308,7 @@ fun TvButton(
 ) {
     var focused by remember { mutableStateOf(false) }
     val active = focused || selected
-    val scale by animateFloatAsState(if (focused) 1.06f else 1f, label = "tvButtonScale")
+    val scale by animateFloatAsState(if (focused) 1.025f else 1f, label = "tvButtonScale")
     val background by animateColorAsState(
         when {
             !enabled -> Color(0xFF202620)
@@ -253,7 +326,7 @@ fun TvButton(
         onClick = onClick,
         enabled = enabled,
         shape = RoundedCornerShape(6.dp),
-        border = if (focused) BorderStroke(3.dp, Color.White) else BorderStroke(1.dp, Color(0xFF303B32)),
+        border = if (focused) BorderStroke(3.dp, Color.White) else BorderStroke(1.dp, Color(0xFF263127)),
         colors = ButtonDefaults.buttonColors(
             containerColor = background,
             contentColor = content,
@@ -281,8 +354,8 @@ fun ScreenTitle(title: String, subtitle: String? = null, modifier: Modifier = Mo
         Text(
             text = title,
             color = Gl0rgText,
-            fontSize = 30.sp,
-            fontWeight = FontWeight.Bold
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Black
         )
         if (subtitle != null) {
             Text(
@@ -304,7 +377,7 @@ fun InfoTile(
     Column(
         modifier = modifier
             .background(Gl0rgPanelSoft, RoundedCornerShape(8.dp))
-            .border(1.dp, Color(0xFF2E392F), RoundedCornerShape(8.dp))
+            .border(1.dp, Color(0xFF263127), RoundedCornerShape(8.dp))
             .padding(18.dp)
     ) {
         Text(
@@ -415,7 +488,7 @@ fun FeaturedStreamCard(
     modifier: Modifier = Modifier
 ) {
     var focused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (focused) 1.025f else 1f, label = "featuredCardScale")
+    val scale by animateFloatAsState(if (focused) 1.015f else 1f, label = "featuredCardScale")
     Card(
         modifier = modifier
             .height(300.dp)
@@ -425,11 +498,11 @@ fun FeaturedStreamCard(
             .clickable(onClick = onClick)
             .border(
                 width = if (focused) 4.dp else 1.dp,
-                color = if (focused) KickGreen else Color(0xFF222A24),
+                color = if (focused) Color.White else Color(0xFF202820),
                 shape = RoundedCornerShape(8.dp)
             ),
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = if (focused) KickGreen else Gl0rgPanelSoft)
+        colors = CardDefaults.cardColors(containerColor = Gl0rgPanelSoft)
     ) {
         Box(Modifier.fillMaxSize()) {
             if (!stream.thumbnailUrl.isNullOrBlank()) {
@@ -453,7 +526,7 @@ fun FeaturedStreamCard(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
-                    .background(if (focused) KickGreen else Color(0xDD0A0D0B))
+                    .background(if (focused) KickGreen else Color(0xE6060807))
                     .padding(18.dp)
             ) {
                 Text(
@@ -501,7 +574,7 @@ fun PreviewCard(
     modifier: Modifier = Modifier
 ) {
     var focused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (focused) 1.12f else 1f, label = "previewCardScale")
+    val scale by animateFloatAsState(if (focused) 1.045f else 1f, label = "previewCardScale")
     Column(
         modifier = modifier
             .width(220.dp)
@@ -511,7 +584,7 @@ fun PreviewCard(
             .clickable(onClick = onClick)
             .border(
                 width = if (focused) 4.dp else 1.dp,
-                color = if (focused) KickGreen else Color(0xFF222A24),
+                color = if (focused) Color.White else Color(0xFF202820),
                 shape = RoundedCornerShape(8.dp)
             )
             .background(if (focused) KickGreen else Gl0rgPanelSoft, RoundedCornerShape(8.dp))
@@ -543,7 +616,7 @@ fun PreviewCard(
             Text(
                 text = title,
                 color = if (focused) Gl0rgBackground else Gl0rgText,
-                fontSize = if (focused) 22.sp else 18.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
