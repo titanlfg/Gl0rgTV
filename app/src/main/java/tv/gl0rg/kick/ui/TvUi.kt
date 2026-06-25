@@ -85,12 +85,11 @@ fun TvShell(
 ) {
     var navOpen by remember { mutableStateOf(false) }
     val navFocusRequester = remember { FocusRequester() }
-    val contentFocusRequester = remember { FocusRequester() }
     val navWidth by animateDpAsState(if (navOpen) 250.dp else 0.dp, label = "navWidth")
 
     LaunchedEffect(navOpen) {
-        runCatching {
-            if (navOpen) navFocusRequester.requestFocus() else contentFocusRequester.requestFocus()
+        if (navOpen) {
+            runCatching { navFocusRequester.requestFocus() }
         }
     }
 
@@ -165,8 +164,6 @@ fun TvShell(
                 .weight(1f)
                 .fillMaxHeight()
                 .padding(start = if (navOpen) 18.dp else 0.dp)
-                .focusRequester(contentFocusRequester)
-                .focusable()
         ) {
             Box(
                 modifier = Modifier
