@@ -1,7 +1,6 @@
 package tv.gl0rg.kick.ui
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -112,8 +111,6 @@ fun TvShell(
 ) {
     var navOpen by remember { mutableStateOf(false) }
     val navFocusRequester = remember { FocusRequester() }
-    val navWidth by animateDpAsState(if (navOpen) 250.dp else 0.dp, label = "navWidth")
-
     LaunchedEffect(navOpen) {
         if (navOpen) {
             runCatching { navFocusRequester.requestFocus() }
@@ -152,11 +149,10 @@ fun TvShell(
         if (navOpen) {
             Column(
                 modifier = Modifier
-                    .width(navWidth)
+                    .width(250.dp)
                     .fillMaxHeight()
                     .alpha(1f)
-                    .padding(end = 24.dp)
-                    .onFocusChanged { if (!it.hasFocus) navOpen = false },
+                    .padding(end = 24.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {

@@ -82,9 +82,34 @@ fun Gl0rgTvApp() {
         }
     }
 
+    suspend fun enrichStreams(streams: List<KickStream>): List<KickStream> =
+        streams.map { stream ->
+            if (!stream.hlsUrl.isNullOrBlank()) {
+                stream
+            } else {
+                when (val result = kickClient.getChannel(stream.slug)) {
+                    is KickResult.Success -> {
+                        val live = result.value.stream
+                        if (live == null) {
+                            stream
+                        } else {
+                            stream.copy(
+                                title = live.title.ifBlank { stream.title },
+                                category = live.category ?: stream.category,
+                                thumbnailUrl = live.thumbnailUrl ?: stream.thumbnailUrl,
+                                viewerCount = live.viewerCount ?: stream.viewerCount,
+                                hlsUrl = live.hlsUrl ?: stream.hlsUrl
+                            )
+                        }
+                    }
+                    is KickResult.Failure -> stream
+                }
+            }
+        }
+
     suspend fun refreshBrowse() {
         when (val result = kickClient.getLiveStreams()) {
-            is KickResult.Success -> liveStreams.value = result.value
+            is KickResult.Success -> liveStreams.value = enrichStreams(result.value)
             is KickResult.Failure -> statusMessage.value = "Browse load failed (${result.reason})"
         }
     }
@@ -95,7 +120,7 @@ fun Gl0rgTvApp() {
         if (announce) statusMessage.value = "Loading $name"
         when (val result = kickClient.getCategoryStreams(slug)) {
             is KickResult.Success -> {
-                categoryStreams.value = result.value
+                categoryStreams.value = enrichStreams(result.value)
                 if (announce) statusMessage.value = "${result.value.size} live in $name"
             }
             is KickResult.Failure -> if (announce) statusMessage.value = "Category load failed (${result.reason})"
