@@ -68,6 +68,12 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            all {
+                it.testLogging {
+                    showStandardStreams = true
+                    events("passed", "failed", "skipped")
+                }
+            }
         }
     }
 
