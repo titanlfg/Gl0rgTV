@@ -6,7 +6,11 @@ val keystoreProperties = Properties().apply {
         keystorePropertiesFile.inputStream().use(::load)
     }
 }
-val hasReleaseKeystore = keystorePropertiesFile.exists()
+// CI signs from environment variables (set by the release workflow from repo
+// secrets); local builds keep using keystore.properties.
+val envKeystoreFile = System.getenv("GL0RG_KEYSTORE_FILE")
+val hasEnvKeystore = !envKeystoreFile.isNullOrBlank()
+val hasReleaseKeystore = keystorePropertiesFile.exists() || hasEnvKeystore
 
 plugins {
     id("com.android.application")
@@ -24,8 +28,8 @@ android {
         applicationId = "tv.gl0rg.kick"
         minSdk = 26
         targetSdk = 35
-        versionCode = 19
-        versionName = "0.1.18"
+        versionCode = 20
+        versionName = "0.1.19"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "APP_DISPLAY_NAME", "\"Gl0rgTV\"")
     }
@@ -33,10 +37,17 @@ android {
     signingConfigs {
         if (hasReleaseKeystore) {
             create("release") {
-                storeFile = file(keystoreProperties.getProperty("storeFile"))
-                storePassword = keystoreProperties.getProperty("storePassword")
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
+                if (hasEnvKeystore) {
+                    storeFile = file(envKeystoreFile!!)
+                    storePassword = System.getenv("GL0RG_KEYSTORE_PASSWORD")
+                    keyAlias = System.getenv("GL0RG_KEY_ALIAS")
+                    keyPassword = System.getenv("GL0RG_KEY_PASSWORD")
+                } else {
+                    storeFile = file(keystoreProperties.getProperty("storeFile"))
+                    storePassword = keystoreProperties.getProperty("storePassword")
+                    keyAlias = keystoreProperties.getProperty("keyAlias")
+                    keyPassword = keystoreProperties.getProperty("keyPassword")
+                }
             }
         }
     }
