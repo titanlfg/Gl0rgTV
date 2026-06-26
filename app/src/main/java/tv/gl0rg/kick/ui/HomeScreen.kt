@@ -49,7 +49,7 @@ fun HomeScreen(
         }
     }
 
-    val liveFollowed = favorites.filter { it.stream != null }
+    val liveFollowed = HomeFeed.liveFollowed(favorites)
 
     TvShell(
         modifier = modifier,
@@ -65,14 +65,23 @@ fun HomeScreen(
         S0undLikeCanvas(scrollState = scrollState) {
             // Live Now — large S0undTV-style preview tiles.
             Column {
-                SectionHeader(if (liveFollowed.isNotEmpty()) "Followed — Live" else "Live Now")
+                SectionHeader("Followed — Live")
                 Spacer(Modifier.height(14.dp))
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(22.dp)
-                ) {
-                    when {
-                        liveFollowed.isNotEmpty() -> liveFollowed.take(8).forEach { channel ->
+                if (liveFollowed.isEmpty()) {
+                    Text(
+                        text = if (favorites.isEmpty()) {
+                            "Favorite channels to see them here when they go live."
+                        } else {
+                            "None of your followed channels are live right now."
+                        },
+                        color = Gl0rgMuted
+                    )
+                } else {
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(22.dp)
+                    ) {
+                        liveFollowed.take(8).forEach { channel ->
                             val stream = channel.stream ?: return@forEach
                             BigPreviewCard(
                                 name = channel.safeDisplayName,
@@ -84,20 +93,6 @@ fun HomeScreen(
                                 onClick = { onOpenStream(stream) }
                             )
                         }
-                        liveStreams.isNotEmpty() -> liveStreams.take(8).forEach { stream ->
-                            BigPreviewCard(
-                                name = stream.slug,
-                                subtitle = stream.category ?: "Live now",
-                                viewers = stream.viewerCount?.let { formatViewers(it) },
-                                imageUrl = stream.thumbnailUrl,
-                                avatarUrl = null,
-                                previewHlsUrl = stream.hlsUrl,
-                                onClick = {
-                                    if (!stream.hlsUrl.isNullOrBlank()) onOpenStream(stream) else onOpenChannel(stream.slug)
-                                }
-                            )
-                        }
-                        else -> Text("Live streamers unavailable right now.", color = Gl0rgMuted)
                     }
                 }
             }
