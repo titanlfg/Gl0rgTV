@@ -7,6 +7,7 @@ import android.net.Uri
 import android.view.WindowManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -74,6 +79,8 @@ private fun NativePlayer(hlsUrl: String, isLive: Boolean) {
     val playbackError = remember(hlsUrl) { mutableStateOf<String?>(null) }
     val quality = remember(hlsUrl) { mutableStateOf(PlayerQuality.Auto) }
     val controlsVisible = remember(hlsUrl) { mutableStateOf(false) }
+    val qualityVisible = remember(hlsUrl) { mutableStateOf(false) }
+    val isPlaying = remember(hlsUrl) { mutableStateOf(true) }
     val trackSelector = remember(hlsUrl) { DefaultTrackSelector(context) }
     val playerResult = remember(hlsUrl) {
         runCatching {
@@ -94,6 +101,10 @@ private fun NativePlayer(hlsUrl: String, isLive: Boolean) {
                 addListener(object : Player.Listener {
                     override fun onPlayerError(error: PlaybackException) {
                         playbackError.value = error.message ?: error.errorCodeName
+                    }
+
+                    override fun onIsPlayingChanged(playing: Boolean) {
+                        isPlaying.value = playing
                     }
                 })
                 setMediaSource(mediaSource)
@@ -136,11 +147,15 @@ private fun NativePlayer(hlsUrl: String, isLive: Boolean) {
         onDispose { player.release() }
     }
 
-    LaunchedEffect(controlsVisible.value, quality.value) {
-        if (controlsVisible.value) {
+    LaunchedEffect(controlsVisible.value, qualityVisible.value, quality.value, isPlaying.value) {
+        if (controlsVisible.value && !qualityVisible.value) {
             delay(7000)
             controlsVisible.value = false
         }
+    }
+
+    BackHandler(enabled = controlsVisible.value) {
+        if (qualityVisible.value) qualityVisible.value = false else controlsVisible.value = false
     }
 
     Box(
@@ -149,12 +164,23 @@ private fun NativePlayer(hlsUrl: String, isLive: Boolean) {
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (event.key) {
-                    Key.DirectionCenter, Key.Enter, Key.Menu, Key.DirectionUp -> {
-                        controlsVisible.value = true
-                        true
+                    // OK toggles play/pause and reveals the bar; when the bar is
+                    // already up, let the focused control handle OK.
+                    Key.DirectionCenter, Key.Enter -> {
+                        if (controlsVisible.value) {
+                            false
+                        } else {
+                            if (player.isPlaying) player.pause() else player.play()
+                            controlsVisible.value = true
+                            true
+                        }
                     }
                     Key.MediaPlayPause, Key.Spacebar -> {
                         if (player.isPlaying) player.pause() else player.play()
+                        true
+                    }
+                    Key.Menu, Key.DirectionUp, Key.DirectionDown -> {
+                        controlsVisible.value = true
                         true
                     }
                     Key.MediaFastForward -> {
@@ -174,7 +200,7 @@ private fun NativePlayer(hlsUrl: String, isLive: Boolean) {
             modifier = Modifier.fillMaxSize(),
             factory = {
                 PlayerView(it).apply {
-                    useController = true
+                    useController = false
                 }
             },
             update = { playerView ->
@@ -185,22 +211,27 @@ private fun NativePlayer(hlsUrl: String, isLive: Boolean) {
             }
         )
         if (controlsVisible.value) {
-            PlayerControlOverlay(
+            PlayerControls(
                 isLive = isLive,
+                isPlaying = isPlaying.value,
                 quality = quality.value,
+                qualityVisible = qualityVisible.value,
+                onPlayPause = { if (player.isPlaying) player.pause() else player.play() },
+                onToggleQuality = { qualityVisible.value = !qualityVisible.value },
                 onQuality = {
                     quality.value = it
                     trackSelector.parameters = trackSelector.buildUponParameters()
                         .setMaxVideoSize(it.maxWidth, it.maxHeight)
                         .build()
+                    qualityVisible.value = false
                 },
                 onLive = {
                     player.seekToDefaultPosition()
                     player.play()
                 },
-                onHide = { controlsVisible.value = false },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
                     .padding(bottom = 28.dp)
             )
         }
@@ -208,33 +239,53 @@ private fun NativePlayer(hlsUrl: String, isLive: Boolean) {
 }
 
 @Composable
-private fun PlayerControlOverlay(
+private fun PlayerControls(
     isLive: Boolean,
+    isPlaying: Boolean,
     quality: PlayerQuality,
+    qualityVisible: Boolean,
+    onPlayPause: () -> Unit,
+    onToggleQuality: () -> Unit,
     onQuality: (PlayerQuality) -> Unit,
     onLive: () -> Unit,
-    onHide: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val firstFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { firstFocus.requestFocus() } }
     Column(
         modifier = modifier
-            .background(Gl0rgBackground.copy(alpha = 0.78f))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xF2000000))))
+            .padding(horizontal = 28.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Playback", color = Gl0rgText, fontSize = 16.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TvButton(
+                label = if (isPlaying) "❚❚  Pause" else "▶  Play",
+                onClick = onPlayPause,
+                modifier = Modifier.focusRequester(firstFocus)
+            )
             if (isLive) {
-                TvButton("Live", onClick = onLive)
+                TvButton("● Live", onClick = onLive)
             }
-            PlayerQuality.entries.forEach { item ->
-                TvButton(
-                    label = item.label,
-                    selected = quality == item,
-                    onClick = { onQuality(item) }
-                )
+            TvButton(
+                label = "⚙  ${quality.label}",
+                onClick = onToggleQuality,
+                selected = qualityVisible
+            )
+        }
+        if (qualityVisible) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PlayerQuality.entries.forEach { item ->
+                    TvButton(
+                        label = item.label,
+                        selected = quality == item,
+                        onClick = { onQuality(item) }
+                    )
+                }
             }
-            TvButton("Hide", onClick = onHide)
         }
     }
 }

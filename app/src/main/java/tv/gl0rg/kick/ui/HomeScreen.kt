@@ -6,11 +6,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.rememberScrollState
 import kotlinx.coroutines.launch
 import tv.gl0rg.kick.kick.KickChannel
 import tv.gl0rg.kick.kick.KickStream
@@ -22,7 +26,6 @@ fun HomeScreen(
     onOpenChannel: (String) -> Unit,
     onOpenStream: (KickStream) -> Unit,
     onBrowseCategory: (String, String) -> Unit,
-    heroStream: KickStream?,
     favorites: List<KickChannel>,
     liveStreams: List<KickStream>,
     selectedCategory: String,
@@ -35,39 +38,95 @@ fun HomeScreen(
     fun scrollToSection(position: Int) {
         scope.launch { scrollState.animateScrollTo(position) }
     }
+    val activeSection by remember {
+        derivedStateOf {
+            when (scrollState.value) {
+                in 0 until 360 -> 0
+                in 360 until 720 -> 1
+                in 720 until 1040 -> 2
+                else -> 3
+            }
+        }
+    }
+
+    val liveFollowed = favorites.filter { it.stream != null }
 
     TvShell(
         modifier = modifier,
         onSearch = onSearch,
         navActions = listOf(
-            TvNavAction("Home", selected = true) { scrollToSection(0) },
-            TvNavAction("Followed") { scrollToSection(520) },
-            TvNavAction("Top Streamers") { scrollToSection(820) },
-            TvNavAction("Categories") { scrollToSection(1080) },
+            TvNavAction("Home", selected = activeSection == 0) { scrollToSection(0) },
+            TvNavAction("Followed", selected = activeSection == 1) { scrollToSection(560) },
+            TvNavAction("Categories", selected = activeSection == 2) { scrollToSection(900) },
+            TvNavAction("Top Streamers", selected = activeSection == 3) { scrollToSection(1200) },
             TvNavAction("Settings", onClick = onSettings)
         )
     ) {
         S0undLikeCanvas(scrollState = scrollState) {
-            if (heroStream != null) {
-                HeroFeature(
-                    stream = heroStream,
-                    onWatch = { onOpenStream(heroStream) }
-                )
+            // Live Now — large S0undTV-style preview tiles.
+            Column {
+                SectionHeader(if (liveFollowed.isNotEmpty()) "Followed — Live" else "Live Now")
+                Spacer(Modifier.height(14.dp))
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(22.dp)
+                ) {
+                    when {
+                        liveFollowed.isNotEmpty() -> liveFollowed.take(8).forEach { channel ->
+                            val stream = channel.stream ?: return@forEach
+                            BigPreviewCard(
+                                name = channel.safeDisplayName,
+                                subtitle = stream.title.ifBlank { stream.category ?: "Live" },
+                                viewers = stream.viewerCount?.let { formatViewers(it) },
+                                imageUrl = stream.thumbnailUrl ?: channel.avatarUrl,
+                                avatarUrl = channel.avatarUrl,
+                                previewHlsUrl = stream.hlsUrl,
+                                onClick = { onOpenStream(stream) }
+                            )
+                        }
+                        liveStreams.isNotEmpty() -> liveStreams.take(8).forEach { stream ->
+                            BigPreviewCard(
+                                name = stream.slug,
+                                subtitle = stream.category ?: "Live now",
+                                viewers = stream.viewerCount?.let { formatViewers(it) },
+                                imageUrl = stream.thumbnailUrl,
+                                avatarUrl = null,
+                                previewHlsUrl = stream.hlsUrl,
+                                onClick = {
+                                    if (!stream.hlsUrl.isNullOrBlank()) onOpenStream(stream) else onOpenChannel(stream.slug)
+                                }
+                            )
+                        }
+                        else -> Text("Live streamers unavailable right now.", color = Gl0rgMuted)
+                    }
+                }
             }
-            ChannelRow(
-                title = "Followed Channels (${favorites.size})",
-                channels = favorites,
-                emptyText = "Favorite channels from a channel page to see them here.",
-                onOpenChannel = onOpenChannel,
-                onOpenStream = onOpenStream
-            )
-            StreamRow(
-                title = "Top Streamers",
-                streams = liveStreams,
-                emptyText = "Live streamers unavailable right now.",
-                onOpenChannel = onOpenChannel,
-                onOpenStream = onOpenStream
-            )
+            // Followed channels — circular avatars.
+            Column {
+                SectionHeader("Followed Channels (${favorites.size})")
+                Spacer(Modifier.height(14.dp))
+                if (favorites.isEmpty()) {
+                    Text("Favorite channels from a channel page to see them here.", color = Gl0rgMuted)
+                } else {
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(18.dp)
+                    ) {
+                        favorites.forEach { channel ->
+                            AvatarCard(
+                                name = channel.safeDisplayName,
+                                avatarUrl = channel.avatarUrl,
+                                live = channel.stream != null,
+                                onClick = {
+                                    val stream = channel.stream
+                                    if (stream != null) onOpenStream(stream) else onOpenChannel(channel.slug)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            // Categories.
             Column {
                 SectionHeader("Categories")
                 Spacer(Modifier.height(14.dp))
@@ -96,6 +155,13 @@ fun HomeScreen(
                 title = "$selectedCategory Live",
                 streams = categoryStreams,
                 emptyText = "No live streamers found in this category.",
+                onOpenChannel = onOpenChannel,
+                onOpenStream = onOpenStream
+            )
+            StreamRow(
+                title = "Top Streamers",
+                streams = liveStreams,
+                emptyText = "Live streamers unavailable right now.",
                 onOpenChannel = onOpenChannel,
                 onOpenStream = onOpenStream
             )

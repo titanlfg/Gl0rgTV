@@ -1,12 +1,14 @@
 package tv.gl0rg.kick.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -22,14 +24,27 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -44,7 +59,10 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -126,187 +144,153 @@ fun TvShell(
     onSearch: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
-    var navOpen by remember { mutableStateOf(false) }
-    val navFocusRequester = remember { FocusRequester() }
-    LaunchedEffect(navOpen) {
-        if (navOpen) {
-            runCatching { navFocusRequester.requestFocus() }
-        }
-    }
-
-    CompositionLocalProvider(LocalOpenTvMenu provides { navOpen = true }) {
-        Row(
-            modifier = modifier
-                .fillMaxSize()
-                .background(Gl0rgBackground)
-                .padding(24.dp)
-                .onPreviewKeyEvent { event ->
-                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                    when (event.key) {
-                        Key.DirectionLeft, Key.Menu -> {
-                            if (!navOpen) {
-                                navOpen = true
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                        Key.DirectionRight -> {
-                            if (navOpen) {
-                                navOpen = false
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                        else -> false
-                    }
-                }
-        ) {
-        if (navOpen) {
-            Column(
-                modifier = Modifier
-                    .width(250.dp)
-                    .fillMaxHeight()
-                    .alpha(1f)
-                    .padding(end = 24.dp),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    if (onSearch != null) {
-                        SearchIconButton(
-                            onClick = onSearch,
-                            modifier = Modifier.focusRequester(navFocusRequester)
-                        )
-                        Spacer(Modifier.height(24.dp))
-                    }
-                    Gl0rgWordmark(compact = false)
-                    Spacer(Modifier.height(34.dp))
-                    navActions.forEachIndexed { index, action ->
-                        val itemModifier = if (onSearch == null && index == 0) {
-                            Modifier.focusRequester(navFocusRequester)
-                        } else {
-                            Modifier
-                        }
-                        SideNavItem(action, expanded = true, modifier = itemModifier)
-                        Spacer(Modifier.height(12.dp))
-                    }
-                }
-                Text(
-                    text = "Unofficial Kick viewer",
-                    color = Gl0rgMuted,
-                    fontSize = 13.sp
-                )
-            }
-        } else {
-            MenuEdgeHandle(
-                onOpen = { navOpen = true },
-                modifier = Modifier.fillMaxHeight()
-            )
-        }
-
+    val contentFocus = remember { FocusRequester() }
+    Row(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Gl0rgBackground)
+    ) {
+        NavRail(navActions = navActions, onSearch = onSearch)
         Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .padding(start = if (navOpen) 18.dp else 0.dp)
+                .padding(start = 40.dp, top = 36.dp, end = 40.dp)
+                .focusRequester(contentFocus)
+                .focusGroup()
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = if (!navOpen && onSearch != null) 96.dp else 0.dp)
-            ) {
-                content()
-            }
-            if (!navOpen && onSearch != null) {
-                SearchIconButton(
-                    onClick = onSearch,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(top = 4.dp)
-                )
-            }
-            if (!navOpen) {
-                Text(
-                    text = "Press Left for menu",
-                    color = Gl0rgMuted.copy(alpha = 0.55f),
-                    fontSize = 13.sp,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(bottom = 4.dp)
-                )
-            }
+            content()
         }
-        }
+    }
+    // Send initial focus into the content, not the rail, so returning from a
+    // stream or first launch lands on the page instead of the side menu.
+    LaunchedEffect(Unit) {
+        runCatching { contentFocus.requestFocus() }
     }
 }
 
 @Composable
-private fun MenuEdgeHandle(
-    onOpen: () -> Unit,
+private fun NavRail(
+    navActions: List<TvNavAction>,
+    onSearch: (() -> Unit)?,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val width by animateDpAsState(if (expanded) 252.dp else 98.dp, label = "railWidth")
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .width(width)
+            .background(Gl0rgPanel)
+            .onFocusChanged { expanded = it.hasFocus }
+            .focusGroup()
+            .padding(horizontal = 18.dp, vertical = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Gl0rgWordmark(compact = !expanded)
+        Spacer(Modifier.height(28.dp))
+        if (onSearch != null) {
+            RailItem(
+                label = "Search",
+                icon = Icons.Filled.Search,
+                selected = false,
+                expanded = expanded,
+                onClick = onSearch
+            )
+        }
+        navActions.forEach { action ->
+            RailItem(
+                label = action.label,
+                icon = iconForLabel(action.label),
+                selected = action.selected,
+                expanded = expanded,
+                onClick = action.onClick
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        if (expanded) {
+            Text(
+                text = "Unofficial Kick viewer",
+                color = Gl0rgMuted,
+                fontSize = 12.sp,
+                maxLines = 2
+            )
+        }
+    }
+}
+
+private fun iconForLabel(label: String): androidx.compose.ui.graphics.vector.ImageVector = when {
+    label.equals("Home", ignoreCase = true) -> Icons.Filled.Home
+    label.startsWith("Followed", ignoreCase = true) ||
+        label.startsWith("Favorite", ignoreCase = true) -> Icons.Filled.Favorite
+    label.startsWith("Top", ignoreCase = true) -> Icons.Filled.Star
+    label.startsWith("Categ", ignoreCase = true) -> Icons.Filled.List
+    label.equals("Settings", ignoreCase = true) -> Icons.Filled.Settings
+    label.equals("Back", ignoreCase = true) -> Icons.Filled.ArrowBack
+    label.equals("Search", ignoreCase = true) -> Icons.Filled.Search
+    label.equals("Login", ignoreCase = true) -> Icons.Filled.AccountCircle
+    label.equals("Channel", ignoreCase = true) -> Icons.Filled.Person
+    else -> Icons.Filled.PlayArrow
+}
+
+@Composable
+private fun RailItem(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    selected: Boolean,
+    expanded: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var focused by remember { mutableStateOf(false) }
-    Box(
-        modifier = modifier
-            .width(18.dp)
-            .padding(end = 8.dp)
-            .onFocusChanged {
-                focused = it.isFocused
-                if (it.isFocused) onOpen()
-            }
-            .focusable()
-            .clickable(onClick = onOpen)
-    ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .width(if (focused) 8.dp else 5.dp)
-                .height(96.dp)
-                .background(KickGreen.copy(alpha = if (focused) 1f else 0.7f), RoundedCornerShape(8.dp))
-        )
-    }
-}
-
-@Composable
-fun SideNavItem(action: TvNavAction, expanded: Boolean, modifier: Modifier = Modifier) {
-    var focused by remember { mutableStateOf(false) }
-    val active = focused || action.selected
-    val color by animateColorAsState(
-        if (active) Gl0rgText else Gl0rgMuted,
-        label = "sideNavColor"
+    val active = focused || selected
+    val background by animateColorAsState(
+        if (focused) KickGreen else Color.Transparent,
+        label = "railItemBackground"
+    )
+    val foreground by animateColorAsState(
+        when {
+            focused -> Gl0rgAccentText
+            selected -> Gl0rgText
+            else -> Gl0rgMuted
+        },
+        label = "railItemForeground"
     )
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(46.dp)
+            .height(54.dp)
+            .background(background, RoundedCornerShape(14.dp))
             .onFocusChanged { focused = it.isFocused }
             .focusable()
-            .clickable(onClick = action.onClick),
+            .clickable(onClick = onClick)
+            .padding(horizontal = 15.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            Modifier
-                .width(5.dp)
-                .height(if (active) 34.dp else 0.dp)
-                .background(KickGreen, RoundedCornerShape(3.dp))
+        if (selected && !focused) {
+            Box(
+                Modifier
+                    .width(4.dp)
+                    .height(26.dp)
+                    .background(KickGreen, RoundedCornerShape(2.dp))
+            )
+            Spacer(Modifier.width(9.dp))
+        }
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = foreground,
+            modifier = Modifier.size(28.dp)
         )
-        Spacer(Modifier.width(14.dp))
         if (expanded) {
+            Spacer(Modifier.width(16.dp))
             Text(
-                text = action.label,
-                color = color,
-                fontSize = if (active) 24.sp else 21.sp,
-                fontWeight = if (active) FontWeight.Black else FontWeight.Bold,
+                text = label,
+                color = foreground,
+                fontSize = 18.sp,
+                fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
-            )
-        } else {
-            Text(
-                text = action.label.take(1),
-                color = color,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Black
             )
         }
     }
@@ -353,21 +337,27 @@ fun SearchIconButton(
 
 @Composable
 fun Gl0rgWordmark(modifier: Modifier = Modifier, compact: Boolean = false) {
-    Column(modifier = modifier) {
-        Text(
-            text = if (compact) "G0" else "Gl0rgTV",
-            color = KickGreen,
-            fontSize = if (compact) 26.sp else 34.sp,
-            fontWeight = FontWeight.Black,
-            letterSpacing = 0.sp
-        )
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Box(
-            Modifier
-                .padding(top = 6.dp)
-                .width(if (compact) 44.dp else 120.dp)
-                .height(4.dp)
-                .background(KickGreen)
-        )
+            modifier = Modifier
+                .size(if (compact) 56.dp else 46.dp)
+                .background(KickGreen, RoundedCornerShape(14.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "G0",
+                color = Gl0rgAccentText,
+                fontSize = if (compact) 22.sp else 19.sp,
+                fontWeight = FontWeight.Black
+            )
+        }
+        if (!compact) {
+            Spacer(Modifier.width(12.dp))
+            Row {
+                Text("Gl0rg", color = Gl0rgText, fontSize = 26.sp, fontWeight = FontWeight.Black)
+                Text("TV", color = KickGreen, fontSize = 26.sp, fontWeight = FontWeight.Black)
+            }
+        }
     }
 }
 
@@ -556,6 +546,219 @@ fun StreamRow(
                 }
             }
         }
+    }
+}
+
+/**
+ * Large S0undTV-style live tile: 16:9 art (thumbnail, live video on focus) with
+ * a LIVE badge and viewer count, plus a colored info bar (avatar + name + title)
+ * that turns accent when focused.
+ */
+@Composable
+fun BigPreviewCard(
+    name: String,
+    subtitle: String,
+    viewers: String?,
+    imageUrl: String?,
+    avatarUrl: String?,
+    previewHlsUrl: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var focused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (focused) 1.03f else 1f, label = "bigCardScale")
+    val topShape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)
+    Column(
+        modifier = modifier
+            .width(440.dp)
+            .scale(scale)
+            .onFocusChanged { focused = it.isFocused }
+            .focusable()
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .clip(topShape)
+                .background(Gl0rgPanel)
+                .border(
+                    width = if (focused) 3.dp else 1.dp,
+                    color = if (focused) KickGreen else Gl0rgOutline,
+                    shape = topShape
+                )
+        ) {
+            PreviewArt(imageUrl = imageUrl, hls = previewHlsUrl, focused = focused, name = name)
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(60.dp)
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xE6000000))))
+            )
+            LiveBadge(modifier = Modifier.align(Alignment.TopStart).padding(12.dp))
+            if (!viewers.isNullOrBlank()) {
+                Text(
+                    text = "$viewers viewers",
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(12.dp)
+                )
+            }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
+                .background(if (focused) KickGreen else Gl0rgPanelSoft)
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AvatarCircle(url = avatarUrl, name = name, size = 42.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = name,
+                    color = if (focused) Gl0rgAccentText else Gl0rgText,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = subtitle,
+                    color = if (focused) Gl0rgAccentText.copy(alpha = 0.85f) else Gl0rgMuted,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreviewArt(imageUrl: String?, hls: String?, focused: Boolean, name: String) {
+    if (focused && !hls.isNullOrBlank()) {
+        FocusedLivePreview(hlsUrl = hls, modifier = Modifier.fillMaxSize())
+    } else if (!imageUrl.isNullOrBlank()) {
+        AsyncImage(
+            model = imageUrl,
+            contentDescription = name,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+    } else {
+        PlaceholderArt(name = name, modifier = Modifier.fillMaxSize())
+    }
+}
+
+/** Never-black fallback art: a branded gradient with the channel initial. */
+@Composable
+private fun PlaceholderArt(name: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.background(
+            Brush.linearGradient(listOf(Gl0rgPanel, Gl0rgSurfaceFocus))
+        ),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = name.take(1).uppercase(),
+            color = KickGreen,
+            fontSize = 64.sp,
+            fontWeight = FontWeight.Black
+        )
+    }
+}
+
+@Composable
+fun AvatarCircle(url: String?, name: String, size: Dp, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(Gl0rgSurfaceFocus),
+        contentAlignment = Alignment.Center
+    ) {
+        if (!url.isNullOrBlank()) {
+            AsyncImage(
+                model = url,
+                contentDescription = name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Text(
+                text = name.take(1).uppercase(),
+                color = KickGreen,
+                fontSize = (size.value / 2.4f).sp,
+                fontWeight = FontWeight.Black
+            )
+        }
+    }
+}
+
+/** Circular channel tile used for the Followed Channels row. */
+@Composable
+fun AvatarCard(
+    name: String,
+    avatarUrl: String?,
+    live: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var focused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (focused) 1.08f else 1f, label = "avatarCardScale")
+    Column(
+        modifier = modifier
+            .width(140.dp)
+            .scale(scale)
+            .onFocusChanged { focused = it.isFocused }
+            .focusable()
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(contentAlignment = Alignment.BottomEnd) {
+            Box(
+                modifier = Modifier
+                    .size(112.dp)
+                    .clip(CircleShape)
+                    .border(
+                        width = if (focused) 3.dp else 2.dp,
+                        color = if (focused) KickGreen else Gl0rgOutline,
+                        shape = CircleShape
+                    )
+            ) {
+                AvatarCircle(url = avatarUrl, name = name, size = 112.dp)
+            }
+            if (live) {
+                Box(
+                    Modifier
+                        .padding(4.dp)
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .background(Gl0rgBackground),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        Modifier
+                            .size(12.dp)
+                            .clip(CircleShape)
+                            .background(Gl0rgLive)
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = name,
+            color = if (focused) KickGreen else Gl0rgText,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -930,6 +1133,26 @@ fun HeroFeature(
 
 @Composable
 private fun FocusedLivePreview(
+    hlsUrl: String,
+    modifier: Modifier = Modifier
+) {
+    // Debounce: only spin up an ExoPlayer once focus settles, so scrolling past
+    // many cards doesn't create/destroy players in a burst (which exhausts video
+    // decoders and leaves later previews black).
+    var ready by remember(hlsUrl) { mutableStateOf(false) }
+    LaunchedEffect(hlsUrl) {
+        kotlinx.coroutines.delay(320)
+        ready = true
+    }
+    Box(modifier.background(Gl0rgPanel)) {
+        if (ready) {
+            LivePreviewSurface(hlsUrl = hlsUrl, modifier = Modifier.fillMaxSize())
+        }
+    }
+}
+
+@Composable
+private fun LivePreviewSurface(
     hlsUrl: String,
     modifier: Modifier = Modifier
 ) {

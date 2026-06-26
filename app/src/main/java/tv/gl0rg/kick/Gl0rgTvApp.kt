@@ -220,9 +220,6 @@ fun Gl0rgTvApp(
         }
     }
 
-    val heroStream = favoriteChannels.value.firstNotNullOfOrNull { it.stream }
-        ?: liveStreams.value.firstOrNull()
-
     BackHandler(enabled = route.value != AppRoute.Home) {
         route.value = AppRoute.Home
     }
@@ -238,7 +235,6 @@ fun Gl0rgTvApp(
             onBrowseCategory = { name, slug ->
                 loadCategory(name, slug)
             },
-            heroStream = heroStream,
             favorites = favoriteChannels.value,
             liveStreams = liveStreams.value,
             selectedCategory = selectedCategory.value,
