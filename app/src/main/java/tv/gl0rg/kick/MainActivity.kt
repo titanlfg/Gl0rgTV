@@ -7,29 +7,46 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import tv.gl0rg.kick.ui.Gl0rgTheme
+import tv.gl0rg.kick.ui.ThemePreferences
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme(
-                colorScheme = darkColorScheme(
-                    background = Color(0xFF090B0A),
-                    surface = Color(0xFF151A17),
-                    primary = Color(0xFF53FC18),
-                    onBackground = Color(0xFFF3F7F1),
-                    onSurface = Color(0xFFF3F7F1),
-                    onPrimary = Color(0xFF090B0A)
-                )
-            ) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background,
-                    contentColor = MaterialTheme.colorScheme.onBackground
+            val context = LocalContext.current
+            var theme by remember { mutableStateOf(ThemePreferences.load(context)) }
+            val colors = theme.colors
+            Gl0rgTheme(option = theme) {
+                MaterialTheme(
+                    colorScheme = darkColorScheme(
+                        background = colors.background,
+                        surface = colors.surface,
+                        primary = colors.accent,
+                        onBackground = colors.text,
+                        onSurface = colors.text,
+                        onPrimary = colors.accentText
+                    )
                 ) {
-                    Gl0rgTvApp()
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background,
+                        contentColor = MaterialTheme.colorScheme.onBackground
+                    ) {
+                        Gl0rgTvApp(
+                            themeOption = theme,
+                            onThemeChange = { selected ->
+                                theme = selected
+                                ThemePreferences.save(context, selected)
+                            }
+                        )
+                    }
                 }
             }
         }

@@ -12,6 +12,7 @@ import tv.gl0rg.kick.kick.KickChannel
 import tv.gl0rg.kick.kick.KickStream
 import tv.gl0rg.kick.kick.KickVideo
 import tv.gl0rg.kick.kick.LocalCookieLoginServer
+import tv.gl0rg.kick.kick.LoginPhase
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -29,6 +30,7 @@ import tv.gl0rg.kick.ui.HomeScreen
 import tv.gl0rg.kick.ui.LoginScreen
 import tv.gl0rg.kick.ui.SearchScreen
 import tv.gl0rg.kick.ui.SettingsScreen
+import tv.gl0rg.kick.ui.ThemeOption
 import tv.gl0rg.kick.update.AppUpdate
 import tv.gl0rg.kick.update.GitHubUpdateClient
 import tv.gl0rg.kick.update.InstallLaunchResult
@@ -45,10 +47,14 @@ sealed interface AppRoute {
 }
 
 @Composable
-fun Gl0rgTvApp() {
+fun Gl0rgTvApp(
+    themeOption: ThemeOption,
+    onThemeChange: (ThemeOption) -> Unit
+) {
     val appContext = LocalContext.current.applicationContext
     val route = remember { mutableStateOf<AppRoute>(AppRoute.Home) }
     val statusMessage = remember { mutableStateOf<String?>(null) }
+    val loginPhase = remember { mutableStateOf(LoginPhase.Waiting) }
     val scope = rememberCoroutineScope()
     val sessionProvider = remember { WebViewKickSessionProvider() }
     val httpClient = remember { OkHttpClient() }
@@ -161,11 +167,14 @@ fun Gl0rgTvApp() {
     }
 
     fun startLocalLoginServer() {
+        loginPhase.value = LoginPhase.Waiting
         localLoginServer.start(
             scope = scope,
+            onPhase = { phase -> scope.launch { loginPhase.value = phase } },
             onLogin = {
                 scope.launch {
                     isLoggedIn.value = true
+                    loginPhase.value = LoginPhase.Linked
                     statusMessage.value = "Kick session linked"
                     localLoginServer.stop()
                     route.value = AppRoute.Home
@@ -211,6 +220,9 @@ fun Gl0rgTvApp() {
         }
     }
 
+    val heroStream = favoriteChannels.value.firstNotNullOfOrNull { it.stream }
+        ?: liveStreams.value.firstOrNull()
+
     BackHandler(enabled = route.value != AppRoute.Home) {
         route.value = AppRoute.Home
     }
@@ -226,6 +238,7 @@ fun Gl0rgTvApp() {
             onBrowseCategory = { name, slug ->
                 loadCategory(name, slug)
             },
+            heroStream = heroStream,
             favorites = favoriteChannels.value,
             liveStreams = liveStreams.value,
             selectedCategory = selectedCategory.value,
@@ -246,6 +259,7 @@ fun Gl0rgTvApp() {
         AppRoute.Login -> LoginScreen(
             localLoginUrl = localLoginUrl.value,
             statusMessage = statusMessage.value,
+            phase = loginPhase.value,
             onBack = {
                 localLoginServer.stop()
                 route.value = AppRoute.Home
@@ -257,6 +271,8 @@ fun Gl0rgTvApp() {
         )
         AppRoute.Settings -> SettingsScreen(
             onBack = { route.value = AppRoute.Home },
+            themeOption = themeOption,
+            onThemeChange = onThemeChange,
             onSignOut = {
                 sessionProvider.clear {
                     isLoggedIn.value = false

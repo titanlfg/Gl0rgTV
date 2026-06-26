@@ -4,9 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
@@ -24,6 +22,7 @@ fun HomeScreen(
     onOpenChannel: (String) -> Unit,
     onOpenStream: (KickStream) -> Unit,
     onBrowseCategory: (String, String) -> Unit,
+    heroStream: KickStream?,
     favorites: List<KickChannel>,
     liveStreams: List<KickStream>,
     selectedCategory: String,
@@ -41,22 +40,24 @@ fun HomeScreen(
         modifier = modifier,
         onSearch = onSearch,
         navActions = listOf(
-            TvNavAction("Followed", selected = true) { scrollToSection(0) },
-            TvNavAction("Followed Channels") { scrollToSection(420) },
-            TvNavAction("Categories") { scrollToSection(650) },
-            TvNavAction("Top Streamers") { scrollToSection(850) },
+            TvNavAction("Home", selected = true) { scrollToSection(0) },
+            TvNavAction("Followed") { scrollToSection(520) },
+            TvNavAction("Top Streamers") { scrollToSection(820) },
+            TvNavAction("Categories") { scrollToSection(1080) },
             TvNavAction("Settings", onClick = onSettings)
         )
     ) {
         S0undLikeCanvas(scrollState = scrollState) {
-            ScreenTitle(
-                title = "Followed Channels (${favorites.size})",
-                subtitle = "Favorites only. No random live streams are injected here."
-            )
+            if (heroStream != null) {
+                HeroFeature(
+                    stream = heroStream,
+                    onWatch = { onOpenStream(heroStream) }
+                )
+            }
             ChannelRow(
-                title = "Favorites",
+                title = "Followed Channels (${favorites.size})",
                 channels = favorites,
-                emptyText = "Favorite channels from a channel page.",
+                emptyText = "Favorite channels from a channel page to see them here.",
                 onOpenChannel = onOpenChannel,
                 onOpenStream = onOpenStream
             )
@@ -68,11 +69,11 @@ fun HomeScreen(
                 onOpenStream = onOpenStream
             )
             Column {
-                ScreenTitle("Categories")
-                Spacer(Modifier.height(12.dp))
+                SectionHeader("Categories")
+                Spacer(Modifier.height(14.dp))
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     val categories = listOf(
                         "Just Chatting" to "just-chatting",
@@ -83,11 +84,10 @@ fun HomeScreen(
                         "Slots" to "slots"
                     )
                     categories.forEach { (name, slug) ->
-                        TvButton(
+                        CategoryChip(
                             label = name,
                             onClick = { onBrowseCategory(name, slug) },
-                            selected = name == selectedCategory,
-                            modifier = Modifier.width(180.dp)
+                            selected = name == selectedCategory
                         )
                     }
                 }
@@ -99,14 +99,6 @@ fun HomeScreen(
                 onOpenChannel = onOpenChannel,
                 onOpenStream = onOpenStream
             )
-            Column {
-                ScreenTitle("Tools")
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    TvButton("Find Channel", onClick = onSearch, modifier = Modifier.width(180.dp))
-                    TvButton("Settings", onClick = onSettings, modifier = Modifier.width(180.dp))
-                }
-            }
             StatusText(statusMessage)
         }
     }

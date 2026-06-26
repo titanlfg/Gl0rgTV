@@ -1,5 +1,6 @@
 package tv.gl0rg.kick.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +14,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    themeOption: ThemeOption,
+    onThemeChange: (ThemeOption) -> Unit,
     onSignOut: () -> Unit,
     isLoggedIn: Boolean,
     onRefreshLogin: () -> Unit,
@@ -32,18 +35,30 @@ fun SettingsScreen(
         S0undLikeCanvas {
             ScreenTitle(
                 title = "Settings",
-                subtitle = "Playback and session controls."
+                subtitle = "Appearance, playback, and session controls."
             )
+            Column {
+                SectionHeader("Theme")
+                Spacer(Modifier.height(14.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ThemeOption.entries.forEach { option ->
+                        CategoryChip(
+                            label = option.displayName,
+                            onClick = { onThemeChange(option) },
+                            selected = option == themeOption
+                        )
+                    }
+                }
+            }
             InfoTile("Player mode", "Native HLS first, Kick WebView fallback.", Modifier.fillMaxWidth(0.86f))
             InfoTile("Quality", "Auto by default. Player overlay offers Auto, 1080p, 720p, and 480p.", Modifier.fillMaxWidth(0.86f))
-            InfoTile("Kick session", if (isLoggedIn) "Logged in. Use Login / Refresh if Kick asks for a new session." else "Not logged in. Login / Refresh opens QR login helper.", Modifier.fillMaxWidth(0.86f))
-            InfoTile("Remote shortcuts", "OK opens controls. Back exits player. Live catches up stream.", Modifier.fillMaxWidth(0.86f))
-            InfoTile("Custom binds", "Shortcut remapping screen planned after device testing.", Modifier.fillMaxWidth(0.86f))
-            Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(14.dp)) {
+            InfoTile("Kick session", if (isLoggedIn) "Logged in. Use Login / Refresh if Kick asks for a new session." else "Not logged in. Login / Refresh opens the QR login helper.", Modifier.fillMaxWidth(0.86f))
+            InfoTile("Remote shortcuts", "OK opens controls. Back exits player. Live catches up the stream.", Modifier.fillMaxWidth(0.86f))
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 TvButton("Check Update", onClick = onCheckUpdate, modifier = Modifier.width(180.dp))
                 TvButton("Install Update", onClick = onInstallUpdate, enabled = updateAvailable, modifier = Modifier.width(180.dp))
             }
-            Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(14.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 TvButton("Login / Refresh", onClick = onRefreshLogin, modifier = Modifier.width(180.dp))
                 TvButton("Sign Out", onClick = onSignOut, modifier = Modifier.width(180.dp))
             }

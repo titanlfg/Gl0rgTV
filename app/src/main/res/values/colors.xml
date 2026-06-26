@@ -1,6 +1,6 @@
 <resources>
     <color name="kick_green">#53FC18</color>
-    <color name="gl0rg_background">#090B0A</color>
-    <color name="gl0rg_surface">#151A17</color>
+    <color name="gl0rg_background">#060807</color>
+    <color name="gl0rg_surface">#101611</color>
     <color name="gl0rg_text">#F3F7F1</color>
 </resources>
