@@ -640,9 +640,8 @@ fun BigPreviewCard(
 
 @Composable
 private fun PreviewArt(imageUrl: String?, hls: String?, focused: Boolean, name: String) {
-    if (focused && !hls.isNullOrBlank()) {
-        FocusedLivePreview(hlsUrl = hls, modifier = Modifier.fillMaxSize())
-    } else if (!imageUrl.isNullOrBlank()) {
+    // Thumbnail (or placeholder) is the always-present base layer...
+    if (!imageUrl.isNullOrBlank()) {
         AsyncImage(
             model = imageUrl,
             contentDescription = name,
@@ -651,6 +650,10 @@ private fun PreviewArt(imageUrl: String?, hls: String?, focused: Boolean, name: 
         )
     } else {
         PlaceholderArt(name = name, modifier = Modifier.fillMaxSize())
+    }
+    // ...with the live video composited on top when focused.
+    if (focused && !hls.isNullOrBlank()) {
+        FocusedLivePreview(hlsUrl = hls, modifier = Modifier.fillMaxSize())
     }
 }
 
@@ -883,12 +886,7 @@ fun PreviewCard(
                 .aspectRatio(16f / 9f)
                 .background(Gl0rgPanel, RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
         ) {
-            if (focused && !previewHlsUrl.isNullOrBlank()) {
-                FocusedLivePreview(
-                    hlsUrl = previewHlsUrl,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else if (!imageUrl.isNullOrBlank()) {
+            if (!imageUrl.isNullOrBlank()) {
                 AsyncImage(
                     model = imageUrl,
                     contentDescription = title,
@@ -902,6 +900,12 @@ fun PreviewCard(
                     fontSize = 56.sp,
                     fontWeight = FontWeight.Black,
                     modifier = Modifier.align(Alignment.Center)
+                )
+            }
+            if (focused && !previewHlsUrl.isNullOrBlank()) {
+                FocusedLivePreview(
+                    hlsUrl = previewHlsUrl,
+                    modifier = Modifier.fillMaxSize()
                 )
             }
             // Bottom scrim for legibility over thumbnails.
@@ -1144,7 +1148,9 @@ private fun FocusedLivePreview(
         kotlinx.coroutines.delay(320)
         ready = true
     }
-    Box(modifier.background(Gl0rgPanel)) {
+    // Transparent: the thumbnail painted underneath shows until video frames
+    // arrive (and stays if the preview fails) — never a black box.
+    Box(modifier) {
         if (ready) {
             LivePreviewSurface(hlsUrl = hlsUrl, modifier = Modifier.fillMaxSize())
         }
@@ -1181,15 +1187,16 @@ private fun LivePreviewSurface(
         onDispose { player.release() }
     }
 
+    // TextureView (not SurfaceView/PlayerView): it composites in the view
+    // hierarchy and is transparent until the first frame, so multiple cards no
+    // longer fight over a single video surface and render black.
     AndroidView(
         modifier = modifier,
-        factory = {
-            PlayerView(it).apply {
-                useController = false
-                this.player = player
+        factory = { ctx ->
+            android.view.TextureView(ctx).also { textureView ->
+                player.setVideoTextureView(textureView)
             }
         },
-        update = { it.player = player },
-        onRelease = { it.player = null }
+        onRelease = { player.clearVideoTextureView(it) }
     )
 }
