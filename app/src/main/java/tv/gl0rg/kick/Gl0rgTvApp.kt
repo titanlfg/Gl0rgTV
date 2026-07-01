@@ -13,6 +13,7 @@ import tv.gl0rg.kick.kick.KickStream
 import tv.gl0rg.kick.kick.KickVideo
 import tv.gl0rg.kick.kick.LocalCookieLoginServer
 import tv.gl0rg.kick.kick.LoginPhase
+import tv.gl0rg.kick.kick.StreamEnrichment
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -88,28 +89,14 @@ fun Gl0rgTvApp(
         }
     }
 
+    // Always enrich through the channel API: the livestreams list returns bare
+    // IVS URLs that the CDN 403s, while the channel API returns signed
+    // (?token=) URLs that actually play. See StreamEnrichment.
     suspend fun enrichStreams(streams: List<KickStream>): List<KickStream> =
         streams.map { stream ->
-            if (!stream.hlsUrl.isNullOrBlank()) {
-                stream
-            } else {
-                when (val result = kickClient.getChannel(stream.slug)) {
-                    is KickResult.Success -> {
-                        val live = result.value.stream
-                        if (live == null) {
-                            stream
-                        } else {
-                            stream.copy(
-                                title = live.title.ifBlank { stream.title },
-                                category = live.category ?: stream.category,
-                                thumbnailUrl = live.thumbnailUrl ?: stream.thumbnailUrl,
-                                viewerCount = live.viewerCount ?: stream.viewerCount,
-                                hlsUrl = live.hlsUrl ?: stream.hlsUrl
-                            )
-                        }
-                    }
-                    is KickResult.Failure -> stream
-                }
+            when (val result = kickClient.getChannel(stream.slug)) {
+                is KickResult.Success -> StreamEnrichment.merge(stream, result.value.stream)
+                is KickResult.Failure -> stream
             }
         }
 
@@ -198,6 +185,17 @@ fun Gl0rgTvApp(
         }
     }
 
+    // Re-resolve a fresh signed playback URL at watch time (tokens expire).
+    val openStream: (KickStream) -> Unit = { stream ->
+        scope.launch {
+            val fresh = when (val result = kickClient.getChannel(stream.slug)) {
+                is KickResult.Success -> StreamEnrichment.merge(stream, result.value.stream)
+                is KickResult.Failure -> stream
+            }
+            route.value = AppRoute.Player(StreamResolver.resolve(fresh))
+        }
+    }
+
     val openChannel: (String) -> Unit = { input ->
         val slug = input.toKickChannelSlug()
         if (slug.isBlank()) {
@@ -229,9 +227,7 @@ fun Gl0rgTvApp(
             onSearch = { route.value = AppRoute.Search },
             onSettings = { route.value = AppRoute.Settings },
             onOpenChannel = openChannel,
-            onOpenStream = { stream ->
-                route.value = AppRoute.Player(StreamResolver.resolve(stream))
-            },
+            onOpenStream = openStream,
             onBrowseCategory = { name, slug ->
                 loadCategory(name, slug)
             },
@@ -337,7 +333,7 @@ fun Gl0rgTvApp(
                             watchedAtMillis = System.currentTimeMillis()
                         )
                     }
-                    route.value = AppRoute.Player(StreamResolver.resolve(stream))
+                    openStream(stream)
                 }
             },
             onWatchVideo = { video ->

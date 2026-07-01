@@ -3,6 +3,7 @@ package tv.gl0rg.kick.kick
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -123,5 +124,49 @@ class KickLiveDiagnosticTest {
 
         out.appendLine("===== /KICK_DIAG =====")
         println(out)
+    }
+
+    /**
+     * End-to-end gate for playback resolution, replicating the app's exact flow:
+     * livestreams list -> enrich via channel API (signed token URL wins) -> the
+     * playlist must be fetchable and be a real HLS master (#EXTM3U).
+     */
+    @Test
+    fun enrichedStreamYieldsPlayableHls() = runBlocking {
+        val list = kick.getLiveStreams()
+        if (list !is KickResult.Success || list.value.isEmpty()) {
+            println("PLAYBACK_GATE: livestreams unavailable from this network; skipping")
+            return@runBlocking
+        }
+        // Try a few live channels in case one goes offline mid-test.
+        val failures = mutableListOf<String>()
+        for (stream in list.value.take(3)) {
+            val enriched = when (val channel = kick.getChannel(stream.slug)) {
+                is KickResult.Success -> StreamEnrichment.merge(stream, channel.value.stream)
+                is KickResult.Failure -> stream
+            }
+            val hls = enriched.hlsUrl
+            if (hls == null) {
+                failures.add("${stream.slug}: no hlsUrl after enrichment")
+                continue
+            }
+            val ok = runCatching {
+                client.newCall(
+                    Request.Builder().url(hls)
+                        .header("User-Agent", "Mozilla/5.0 (Android TV; Gl0rgTV)")
+                        .build()
+                ).execute().use { r ->
+                    val head = r.body?.string()?.take(20).orEmpty()
+                    println("PLAYBACK_GATE: ${stream.slug} -> HTTP ${r.code}, head=${head.replace("\n", "\\n")}")
+                    r.code == 200 && head.startsWith("#EXTM3U")
+                }
+            }.getOrDefault(false)
+            if (ok) {
+                println("PLAYBACK_GATE: PASS via ${stream.slug}")
+                return@runBlocking
+            }
+            failures.add("${stream.slug}: playlist not playable")
+        }
+        assertTrue("No enriched live stream produced a playable #EXTM3U playlist: $failures", false)
     }
 }
