@@ -58,11 +58,33 @@ class KickLiveDiagnosticTest {
             }
         }
 
+        var sampleHls: String? = null
         when (val live = kick.getLiveStreams()) {
-            is KickResult.Success -> out.appendLine(
-                "getLiveStreams -> n=${live.value.size}, withHls=${live.value.count { it.hlsUrl != null }}, sampleHls=${live.value.firstOrNull { it.hlsUrl != null }?.hlsUrl}"
-            )
+            is KickResult.Success -> {
+                sampleHls = live.value.firstOrNull { it.hlsUrl != null }?.hlsUrl
+                out.appendLine("getLiveStreams -> n=${live.value.size}, withHls=${live.value.count { it.hlsUrl != null }}, sampleHls=$sampleHls")
+            }
             is KickResult.Failure -> out.appendLine("getLiveStreams -> FAILURE ${live.reason}")
+        }
+
+        // Fetch a real live HLS master playlist two ways to see if the kick.com
+        // Origin/Referer headers (what the player sends) get rejected by the IVS CDN.
+        sampleHls?.let { hls ->
+            fun probe(label: String, withKickHeaders: Boolean) {
+                runCatching {
+                    val b = Request.Builder().url(hls)
+                        .header("User-Agent", "Mozilla/5.0 (Android TV; Gl0rgTV)")
+                    if (withKickHeaders) {
+                        b.header("Origin", "https://kick.com").header("Referer", "https://kick.com/")
+                    }
+                    client.newCall(b.build()).execute().use { r ->
+                        val head = r.body?.string()?.take(60)?.replace("\n", "\\n")
+                        out.appendLine("HLS[$label] -> HTTP ${r.code}, head=$head")
+                    }
+                }.onFailure { out.appendLine("HLS[$label] FAILED: $it") }
+            }
+            probe("plain", withKickHeaders = false)
+            probe("kickHeaders", withKickHeaders = true)
         }
 
         out.appendLine("===== /KICK_DIAG =====")
