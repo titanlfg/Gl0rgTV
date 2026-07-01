@@ -59,12 +59,46 @@ class KickLiveDiagnosticTest {
         }
 
         var sampleHls: String? = null
+        var liveSlug: String? = null
         when (val live = kick.getLiveStreams()) {
             is KickResult.Success -> {
-                sampleHls = live.value.firstOrNull { it.hlsUrl != null }?.hlsUrl
-                out.appendLine("getLiveStreams -> n=${live.value.size}, withHls=${live.value.count { it.hlsUrl != null }}, sampleHls=$sampleHls")
+                val first = live.value.firstOrNull { it.hlsUrl != null }
+                sampleHls = first?.hlsUrl
+                liveSlug = first?.slug
+                out.appendLine("getLiveStreams -> n=${live.value.size}, withHls=${live.value.count { it.hlsUrl != null }}, liveSlug=$liveSlug, sampleHls=$sampleHls")
             }
             is KickResult.Failure -> out.appendLine("getLiveStreams -> FAILURE ${live.reason}")
+        }
+
+        // For a channel that IS live: print the FULL playback_url from the channel
+        // API (does it carry a ?token= that the list API omits?) and probe it.
+        liveSlug?.let { slug ->
+            runCatching {
+                client.newCall(
+                    Request.Builder()
+                        .url("https://kick.com/api/v2/channels/$slug")
+                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+                        .header("Accept", "application/json, text/plain, */*")
+                        .build()
+                ).execute().use { r ->
+                    val body = r.body?.string().orEmpty()
+                    val playback = Regex("\"playback_url\"\\s*:\\s*\"([^\"]+)\"").find(body)
+                        ?.groupValues?.get(1)?.replace("\\/", "/")
+                    out.appendLine("LIVE channel api/$slug -> HTTP ${r.code}, playback_url=$playback")
+                    if (playback != null) {
+                        runCatching {
+                            client.newCall(
+                                Request.Builder().url(playback)
+                                    .header("User-Agent", "Mozilla/5.0 (Android TV; Gl0rgTV)")
+                                    .build()
+                            ).execute().use { pr ->
+                                val head = pr.body?.string()?.take(80)?.replace("\n", "\\n")
+                                out.appendLine("LIVE channel playback GET -> HTTP ${pr.code}, head=$head")
+                            }
+                        }.onFailure { out.appendLine("LIVE channel playback GET FAILED: $it") }
+                    }
+                }
+            }.onFailure { out.appendLine("LIVE channel api/$slug FAILED: $it") }
         }
 
         // Fetch a real live HLS master playlist two ways to see if the kick.com
